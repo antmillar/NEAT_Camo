@@ -73,6 +73,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NEAT.cs" />
     <Compile Include="Linear.cs" />
     <Compile Include="DynamicFormsComponent.cs" />
     <Compile Include="GH_CPPNInfo.cs" />
