@@ -7,6 +7,8 @@ using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System.Drawing;
 using NumSharp;
+using WIP;
+using test;
 
 namespace GH_CPPN
 {
@@ -80,10 +82,10 @@ namespace GH_CPPN
 
             Rhino.Geometry.Plane plane = Rhino.Geometry.Plane.WorldXY;
 
-            var linear = new CustomModel();
+            var linear = new temp.CustomModel();
             //NDArray activations = linear.ForwardPass(coords);
 
-            var mlp = new MLP(2, 1, 8);
+            var mlp = new temp.MLP(2, 1, 8);
             NDArray activations = mlp.ForwardPass(coords);
 
             for (int i = 0; i < meshes.Count; i++)
@@ -101,6 +103,20 @@ namespace GH_CPPN
             combinedMesh.Append(meshes);
             DA.SetData(0, combinedMesh);
             DA.SetDataList(1, activations);
+
+
+            var pop = new NEAT.Population(10);
+            Console.WriteLine(pop);
+
+            var genome = new NEAT.Genome();
+
+            Console.WriteLine(genome);
+
+            var network = new Network(genome);
+
+            network.GenerateLayers();
+
+            Console.WriteLine("TEST");
         }
     }
 }

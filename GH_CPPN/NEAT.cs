@@ -41,20 +41,29 @@ namespace WIP
                 return String.Join("\n", Genomes.Select(x => x.ToString()));
             }
 
+            public string PrintInputs()
+            {
+                string s = "Node Inputs : " + String.Join(" ", Genomes.Select(x => x.ToString()));
+
+                return s;
+            }
+
         }
          
         public class Gene { };
 
         public class NodeGene : Gene
         {
-            string _activationType;
-            int _id;
-            string _type;
+            protected internal string _activationType;
+            protected internal int _id;
+            protected internal string _type;
+            protected internal List<int> _inputs;
 
             public NodeGene(int id, string type)
             {
                 _id = id;
                 _type = type;
+                _inputs = new List<int>();
             }
 
 
@@ -67,9 +76,9 @@ namespace WIP
         }
         public class ConnectionGene : Gene
         {
-            public double Weight { get; set; }
-            int _inputNode;
-            int _outputNode;
+            protected internal double Weight { get; set; }
+            protected internal int _inputNode;
+            protected internal int _outputNode;
 
             public ConnectionGene(int inputNode, int outputNode)
             {
@@ -88,16 +97,16 @@ namespace WIP
 
         public class Genome
         {
-            List<Gene> Nodes { get; set; }
-            List<Gene> Connections { get; set; }
+            public List<NodeGene> Nodes { get; set; }
+            public List<ConnectionGene> Connections { get; set; }
 
             float _fitness;
 
             public Genome()
             {
                 //initialise a standard architecture
-                Nodes = new List<Gene>();
-                Connections = new List<Gene>();
+                Nodes = new List<NodeGene>();
+                Connections = new List<ConnectionGene>();
 
                 Nodes.Add(new NodeGene(0, "input"));
                 Nodes.Add(new NodeGene(1, "input"));
@@ -112,6 +121,28 @@ namespace WIP
                 Connections.Add(new ConnectionGene(2, 4));
                 Connections.Add(new ConnectionGene(3, 4));
 
+                CalculateInputs();
+
+            }
+
+            public NodeGene GetNodeByID(int id)
+            {
+                return Nodes.Single(x => x._id == id);
+            }
+
+            //populate the list of input node ids into each node
+            private void CalculateInputs()
+            {
+                foreach(NodeGene nodeGene in Nodes)
+                {
+                    foreach(ConnectionGene connection in Connections)
+                    {
+                        if(connection._outputNode == nodeGene._id)
+                        {
+                            nodeGene._inputs.Add(connection._inputNode);
+                        }
+                    }
+                }
             }
 
             //mutates just the connection genes currently
@@ -140,6 +171,7 @@ namespace WIP
 
                 return s;
             }
+
         }
     }
 }

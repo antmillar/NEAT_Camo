@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using NumSharp;
 
+
 using WIP;
 
 namespace test
@@ -13,24 +14,103 @@ namespace test
     //MODELS
     public interface Model
     {
-
-
         NDArray ForwardPass(NDArray input);
-
-
     }
 
     public class Network : Model
     {
+        int _inputCount;
+        NEAT.Genome _genome;
+        public List<List<NEAT.ConnectionGene>> _layers;
+
         public Network(NEAT.Genome genome)
         {
+            _inputCount = 0;
+            _genome = genome;
 
 
+            foreach(NEAT.NodeGene nodeGene in _genome.Nodes)
+            {
+                if(nodeGene._type == "input")
+                {
+                    _inputCount += 1;
+                }
+            }
         }
 
+        //calculates the layers for the network based on nodes and connections
+        public void GenerateLayers()
+        {
+            var currentNodes = new List<int>();
+            _layers = new List<List<NEAT.ConnectionGene>>();
+
+            //find input nodes
+            foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
+            {
+                if (nodeGene._type == "input")
+                {
+                    currentNodes.Add(nodeGene._id);
+                }
+            }
+
+            var output = MakeLayer(currentNodes);
+
+        }
+        public List<int> MakeLayer(List<int> currentNodes)
+        {
+
+            var currentLayer = new List<NEAT.ConnectionGene>();
+            var potentialNodes = new List<int>();
+            var nextNodes = new List<int>();
+
+            //find all connections starting from current nodes and their output nodes
+            foreach (NEAT.ConnectionGene connectionGene in _genome.Connections)
+            {
+                if (currentNodes.Contains(connectionGene._inputNode))
+                {
+                    currentLayer.Add(connectionGene);
+                    potentialNodes.Add(connectionGene._outputNode);
+                }
+            }
+
+            //finds nodes where all inputs are from current nodes
+            foreach (var id in potentialNodes)
+            {
+                var inputs = _genome.GetNodeByID(id)._inputs;
+
+                //check if all inputs into node are from the current nodes
+                if (currentNodes.Intersect(inputs).Count() == inputs.Count())
+                {
+                    nextNodes.Add(id);
+                }
+            }
+
+            //keep only nodes with inputs from current nodes
+            currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
+
+            _layers.Add(currentLayer);
+
+            //recursively traverse the network
+            if (nextNodes.Count == 0)
+            {
+                return nextNodes;
+            }
+            else
+            {
+                return MakeLayer(nextNodes);
+            }
+        }
 
         public NDArray ForwardPass(NDArray input)
         {
+            if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape}");
+
+            //var input0 = null;
+            //var input1 = null;
+
+         
+
+
             throw new NotImplementedException();
         }
     }
