@@ -47,6 +47,7 @@ namespace CPPN.Display
 
             {
                 double col = output[i, 0];
+                if (col > 1.0) col = 1.0;
                 int intCol = (int)(col * 255);
                 Color color = Color.FromArgb(intCol, intCol, intCol);
 

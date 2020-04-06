@@ -10,8 +10,9 @@ using NumSharp;
 
 //custom libraries
 using CPPN.NEAT;
-using CPPN.Network;
+using CPPN.Net;
 using CPPN.Display;
+using CPPN.Fitness;
 
 namespace GH_CPPN
 {
@@ -71,7 +72,7 @@ namespace GH_CPPN
 
 
 
-            int width = 10;
+            int width = 20;
 
             //populate coords
             NDArray coords = np.ones((width * width, 2));
@@ -101,8 +102,8 @@ namespace GH_CPPN
                 Mesh combinedMesh = drawing.Paint(outputs[i]);
                 meshes.Add(combinedMesh);
             }
-            
 
+            var fits = Fitness.Function(pop, coords);
 
             //paint mesh using outputs
 

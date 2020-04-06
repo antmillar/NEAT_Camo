@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using NumSharp;
 using CPPN.NEAT;
 
-namespace CPPN.Network
+namespace CPPN.Net
 {
   
     //MODELS
@@ -149,85 +149,12 @@ namespace CPPN.Network
                 }
             }
 
-            Console.WriteLine("");
-            return np.expand_dims(inputs[4],1) ;
-        }
-    }
-    public class CustomModel : Model
-    {
-        public NDArray ForwardPass(NDArray input)
-        {
-            //input has size numDims x inputFeats
-            //output has size numDims x outputFeats
-            //weights has size inputFeats x outputFeats
-
-            //TODO create weights, create biases,
-
-            //number of input feats
-            int num_input = input.shape[1];
-            int num_hidden = 16;
-            int num_output = 1;
-
-            var sigmoid = new Sigmoid();
-            var tanh = new Tanh();
-
-            var fc1 = new Linear(num_input, num_hidden);
-            var x = fc1.Apply(input);
-            x = tanh.Apply(x);
-
-            var fc2 = new Linear(num_hidden, num_hidden);
-            x = fc2.Apply(x);
-            x = tanh.Apply(x);
-
-            var fc3 = new Linear(num_hidden, num_output);
-            x = fc3.Apply(x);
-            x = sigmoid.Apply(x);
-
-            return x;
+            //what about more than one output?
+            return np.expand_dims(inputs[inputs.Count - 1],1) ;
         }
     }
 
-    public class MLP : Model
-    {
-        /// <summary> Creates a model with a num_layers each with num_neurons. </summary>
 
-        List<ILayer> layers;
-
-        public MLP(int _input_feats, int _output_feats, int _num_hiddenlayers = 0, int _num_neurons = 16)
-        {
-            layers = new List<ILayer>();
-            var layerIn = new Linear(_input_feats, _num_neurons);
-            layers.Add(layerIn);
-
-            //hidden layers
-            for (int i = 0; i < _num_hiddenlayers; i++)
-            {
-                layers.Add(new Linear(_num_neurons, _num_neurons));
-            }
-
-            var layerOut = new Linear(_num_neurons, _output_feats);
-            layers.Add(layerOut);
-        }
-
-        public NDArray ForwardPass(NDArray input)
-        {
-            var x = input;
-            var tanh = new Tanh();
-            var sigmoid = new Sigmoid();
-
-            for (int i = 0; i < layers.Count - 1; i++)
-            {
-                x = layers[i].Apply(x);
-                x = tanh.Apply(x);
-            }
-
-            //final layer needs to be sigmoid so output in range (0, 1)
-            x = layers[layers.Count - 1].Apply(x);
-            x = sigmoid.Apply(x);
-
-            return x;
-        }
-    }
 
 
     //LAYERS
@@ -279,14 +206,28 @@ namespace CPPN.Network
         }
     }
 
+    public class Sin : IActivation
+    {
+        public NDArray Apply(NDArray input)
+        {
+            return np.sin(input);
+        }
+    }
+
+    public class Cos : IActivation
+    {
+        public NDArray Apply(NDArray input)
+        {
+            return np.cos(input);
+        }
+    }
+
     public class Relu : IActivation
     {
         public NDArray Apply(NDArray input)
         {
             return np.maximum(input, 0);
         }
-
-
     }
 
 }

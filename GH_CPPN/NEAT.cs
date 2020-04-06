@@ -29,7 +29,7 @@ namespace CPPN.NEAT
             }
         }
 
-
+        //currently has to be run after the fitnesses are calculated
         public void NextGeneration()
         {
             foreach(var genome in Genomes)
@@ -37,7 +37,6 @@ namespace CPPN.NEAT
                 //could create a copy in here instead and return it
                 genome.Mutate();
             }
-
         }
 
         public override string ToString()
@@ -106,27 +105,37 @@ namespace CPPN.NEAT
     {
         public List<NodeGene> Nodes { get; set; }
         public List<ConnectionGene> Connections { get; set; }
-
-        float _fitness;
+        protected internal double Fitness { get; set; }
 
         public Genome()
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();
             Connections = new List<ConnectionGene>();
+            Fitness = 0.0;
 
             Nodes.Add(new NodeGene(0, "input"));
             Nodes.Add(new NodeGene(1, "input"));
             Nodes.Add(new NodeGene(2, "hidden"));
             Nodes.Add(new NodeGene(3, "hidden"));
-            Nodes.Add(new NodeGene(4, "output", "sigmoid"));
+            Nodes.Add(new NodeGene(4, "hidden"));
+            Nodes.Add(new NodeGene(5, "hidden"));
+            Nodes.Add(new NodeGene(6, "output", "sigmoid"));
 
             Connections.Add(new ConnectionGene(0, 2));
             Connections.Add(new ConnectionGene(0, 3));
+            Connections.Add(new ConnectionGene(0, 4));
+            Connections.Add(new ConnectionGene(0, 5));
+
             Connections.Add(new ConnectionGene(1, 2));
             Connections.Add(new ConnectionGene(1, 3));
-            Connections.Add(new ConnectionGene(2, 4));
-            Connections.Add(new ConnectionGene(3, 4));
+            Connections.Add(new ConnectionGene(1, 4));
+            Connections.Add(new ConnectionGene(1, 5));
+
+            Connections.Add(new ConnectionGene(2, 6));
+            Connections.Add(new ConnectionGene(3, 6));
+            Connections.Add(new ConnectionGene(4, 6));
+            Connections.Add(new ConnectionGene(5, 6));
 
             CalculateInputs();
 
