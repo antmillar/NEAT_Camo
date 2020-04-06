@@ -11,6 +11,7 @@ namespace CPPN.NEAT
     {
         public static System.Random globalRandom = new System.Random();
         public static double mutateRate = 0.2;
+        public static string fitnessTarget = "min";
         
     }
 
@@ -32,10 +33,29 @@ namespace CPPN.NEAT
         //currently has to be run after the fitnesses are calculated
         public void NextGeneration()
         {
-            foreach(var genome in Genomes)
+            for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
+            {
+                Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
+            }
+
+            foreach (var genome in Genomes)
             {
                 //could create a copy in here instead and return it
                 genome.Mutate();
+            }
+
+            SortByFitness();
+        }
+
+        public void SortByFitness()
+        {
+            if (Config.fitnessTarget == "min")
+            {
+                Genomes = Genomes.OrderBy(x => x.Fitness).ToList();
+            }
+            else if (Config.fitnessTarget == "max")
+            {
+                Genomes = Genomes.OrderByDescending(x => x.Fitness).ToList();
             }
         }
 
@@ -72,7 +92,16 @@ namespace CPPN.NEAT
             _bias = Config.globalRandom.NextDouble() * 2 - 1.0;
         }
 
+        //copy constructor
+        public NodeGene(NodeGene parent)
+        {
+            _id =  parent._id;
+            _type = parent._type;
+            _inputs = parent._inputs;
+            _activationType = parent._activationType;
+            _bias = parent._bias;
 
+        }
 
         public override string ToString()
         {
@@ -92,6 +121,15 @@ namespace CPPN.NEAT
             _outputNode = outputNode;
 
             Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
+        }
+
+        //copy constructor
+        public ConnectionGene(ConnectionGene parent)
+        {
+            _inputNode = parent._inputNode;
+            _outputNode = parent._outputNode;
+
+            Weight = parent.Weight;
         }
 
         public override string ToString()
@@ -141,6 +179,24 @@ namespace CPPN.NEAT
 
         }
 
+        //copy constructor
+        public Genome(Genome parent)
+        {
+            Nodes = new List<NodeGene>();
+            Connections = new List<ConnectionGene>();
+            Fitness = parent.Fitness;
+
+            foreach(var node in parent.Nodes)
+            {
+                Nodes.Add(new NodeGene(node));
+            }
+
+            foreach(var conn in parent.Connections)
+            {
+                Connections.Add(new ConnectionGene(conn));
+            }
+        }
+
         public NodeGene GetNodeByID(int id)
         {
             return Nodes.Single(x => x._id == id);
@@ -169,7 +225,7 @@ namespace CPPN.NEAT
                 if (Config.globalRandom.NextDouble() < Config.mutateRate)
                 {
                     //need to clamp weights?
-                    connection.Weight += (Config.globalRandom.NextDouble() - 0.5);
+                    connection.Weight += (Config.globalRandom.NextDouble() - 0.5) / 2.0;
                 }
             }
         }

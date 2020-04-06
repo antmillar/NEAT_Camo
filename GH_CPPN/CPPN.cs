@@ -18,6 +18,10 @@ namespace GH_CPPN
 {
     public class CPPN : GH_Component
     {
+        private bool init;
+        private List<Mesh> meshes = new List<Mesh>();
+        private Population pop;
+        private List<double> fits;
 
         public CPPN() : base("CPPN", "CPPN", "Constructing a 2d CPPN", "CPPN", "Simple")
             {
@@ -33,23 +37,23 @@ namespace GH_CPPN
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             //pManager.AddTextParameter("input text", "i", "string to reverse", GH_ParamAccess.item);
-            //pManager.AddNumberParameter("input number", "num", "number to input", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("toggle generation", "toggle", "run the next generation", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             //pManager.AddPointParameter("points", "pts", "grid points", GH_ParamAccess.list);
             pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.list);
-            //pManager.AddNumberParameter("outputs", "outputs", "output of linear", GH_ParamAccess.list);
+            pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
 
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
 
-            //double data = double.NaN;
-            //if (!DA.GetData(0, ref data)) { return; }
-            //if (data == double.NaN) { return; }
+            bool button = false;
+            if (!DA.GetData(0, ref button)) { return; }
+            if (button == null) { return; }
 
             //var linear = new temp.CustomModel();
             //NDArray activations = linear.ForwardPass(coords);
@@ -57,60 +61,119 @@ namespace GH_CPPN
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
 
-            int popSize = 10;
-            var pop = new Population(popSize);
-            var genome = new Genome();
-
-            List<Network> nets = new List<Network>();
-
-
-            for (int i = 0; i < popSize; i++)
+            if (!init)
             {
-                nets.Add(new Network(pop.Genomes[i]));
-            }
-            //var network = new Network(genome);
+                init = true;
+                int popSize = 10;
+                pop = new Population(popSize);
 
 
 
-            int width = 20;
 
-            //populate coords
-            NDArray coords = np.ones((width * width, 2));
 
-            for (int i = -width / 2; i < width / 2; i++)
-            {
-                for (int j = -width / 2; j < width / 2; j++)
+                int width = 20;
+
+                //populate coords
+                NDArray coords = np.ones((width * width, 2));
+
+                for (int i = -width / 2; i < width / 2; i++)
                 {
-                    //coords are in range [-0.5, 0.5]
-                    coords[(i + width / 2) * width + j + width / 2, 0] = 1.0 * i / width;
-                    coords[(i + width / 2) * width + j + width / 2, 1] = 1.0 * j / width;
+                    for (int j = -width / 2; j < width / 2; j++)
+                    {
+                        //coords are in range [-0.5, 0.5]
+                        coords[(i + width / 2) * width + j + width / 2, 0] = 1.0 * i / width;
+                        coords[(i + width / 2) * width + j + width / 2, 1] = 1.0 * j / width;
+                    }
                 }
+
+                fits = Fitness.Function(pop, coords);
+
+
+                List<Network> nets = new List<Network>();
+
+
+                for (int i = 0; i < popSize; i++)
+                {
+                    nets.Add(new Network(pop.Genomes[i]));
+                }
+                //var network = new Network(genome);
+
+                var outputs = new List<NDArray>();
+                meshes.Clear();
+                //var meshes = new List<Mesh>();
+
+                foreach (var net in nets)
+                {
+                    var output = net.ForwardPass(coords);
+                    outputs.Add(output);
+                }
+
+                for (int i = 0; i < outputs.Count; i++)
+                {
+                    var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
+                    Mesh combinedMesh = drawing.Paint(outputs[i]);
+                    meshes.Add(combinedMesh);
+                }
+
+
             }
-
-            var outputs = new List<NDArray>();
-            var meshes = new List<Mesh>();
-
-            foreach (var net in nets)
-            {
-                var output = net.ForwardPass(coords);
-                outputs.Add(output);
-            }
-
-            for (int i = 0; i < outputs.Count; i++)
-            {
-                var drawing = new Drawing(width, -popSize/2 * width + i * width, 0);
-                Mesh combinedMesh = drawing.Paint(outputs[i]);
-                meshes.Add(combinedMesh);
-            }
-
-            var fits = Fitness.Function(pop, coords);
 
             //paint mesh using outputs
+
+            if(button)
+            {
+
+                pop.NextGeneration();
+
+
+                int popSize = 10;
+                //redraw them
+                List<Network> nets = new List<Network>();
+
+                for (int i = 0; i < popSize; i++)
+                {
+                    nets.Add(new Network(pop.Genomes[i]));
+                }
+
+                int width = 20;
+
+                //populate coords
+                NDArray coords = np.ones((width * width, 2));
+
+                for (int i = -width / 2; i < width / 2; i++)
+                {
+                    for (int j = -width / 2; j < width / 2; j++)
+                    {
+                        //coords are in range [-0.5, 0.5]
+                        coords[(i + width / 2) * width + j + width / 2, 0] = 1.0 * i / width;
+                        coords[(i + width / 2) * width + j + width / 2, 1] = 1.0 * j / width;
+                    }
+                }
+
+                var outputs = new List<NDArray>();
+                meshes.Clear();
+                //var meshes = new List<Mesh>();
+
+                foreach (var net in nets)
+                {
+                    var output = net.ForwardPass(coords);
+                    outputs.Add(output);
+                }
+
+                for (int i = 0; i < outputs.Count; i++)
+                {
+                    var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
+                    Mesh combinedMesh = drawing.Paint(outputs[i]);
+                    meshes.Add(combinedMesh);
+                }
+
+                fits = Fitness.Function(pop, coords);
+            }
 
 
             //output data from GH component
             DA.SetDataList(0, meshes);
-            //DA.SetDataList(1, output);
+            DA.SetDataList(1, fits);
         }
     }
 }
