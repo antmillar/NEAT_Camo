@@ -4,174 +4,181 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WIP
+namespace CPPN.NEAT
 {
-    public class NEAT
+   
+    public static class Config
     {
         public static System.Random globalRandom = new System.Random();
         public static double mutateRate = 0.2;
+        
+    }
 
-        public class Population
+    public class Population
+    {
+
+        List<Genome> Genomes { get; set; }
+
+        public Population(int size)
         {
-            List<Genome> Genomes { get; set; }
+            Genomes = new List<Genome>();
 
-            public Population(int size)
+            for (int i = 0; i < size; i++)
             {
-                Genomes = new List<Genome>();
-
-                for (int i = 0; i < size; i++)
-                {
-                    Genomes.Add(new Genome());
-                }
+                Genomes.Add(new Genome());
             }
+        }
 
 
-            public void NextGeneration()
+        public void NextGeneration()
+        {
+            foreach(var genome in Genomes)
             {
-                foreach(var genome in Genomes)
-                {
-                    //could create a copy in here instead and return it
-                    genome.Mutate();
-                }
-
-            }
-
-            public override string ToString()
-            {
-                return String.Join("\n", Genomes.Select(x => x.ToString()));
-            }
-
-            public string PrintInputs()
-            {
-                string s = "Node Inputs : " + String.Join(" ", Genomes.Select(x => x.ToString()));
-
-                return s;
+                //could create a copy in here instead and return it
+                genome.Mutate();
             }
 
         }
+
+        public override string ToString()
+        {
+            return String.Join("\n", Genomes.Select(x => x.ToString()));
+        }
+
+        public string PrintInputs()
+        {
+            string s = "Node Inputs : " + String.Join(" ", Genomes.Select(x => x.ToString()));
+
+            return s;
+        }
+
+    }
          
-        public class Gene { };
+    public class Gene { };
 
-        public class NodeGene : Gene
+    public class NodeGene : Gene
+    {
+        protected internal string _activationType;
+        protected internal int _id;
+        protected internal string _type;
+        protected internal List<int> _inputs;
+        protected internal double _bias;
+
+        public NodeGene(int id, string type, string activationType = "tanh")
         {
-            protected internal string _activationType;
-            protected internal int _id;
-            protected internal string _type;
-            protected internal List<int> _inputs;
-
-            public NodeGene(int id, string type)
-            {
-                _id = id;
-                _type = type;
-                _inputs = new List<int>();
-            }
-
-
-
-            public override string ToString()
-            {
-                return _id.ToString();
-            }
-
-        }
-        public class ConnectionGene : Gene
-        {
-            protected internal double Weight { get; set; }
-            protected internal int _inputNode;
-            protected internal int _outputNode;
-
-            public ConnectionGene(int inputNode, int outputNode)
-            {
-                _inputNode = inputNode;
-                _outputNode = outputNode;
-
-                Weight = globalRandom.NextDouble() * 2 - 1.0;
-            }
-
-            public override string ToString()
-            {
-                return $"({_inputNode}, {_outputNode}) w = {Math.Round(Weight, 2)} ";
-            }
+            _id = id;
+            _type = type;
+            _inputs = new List<int>();
+            _activationType = activationType;
+            _bias = Config.globalRandom.NextDouble() * 2 - 1.0;
         }
 
 
-        public class Genome
+
+        public override string ToString()
         {
-            public List<NodeGene> Nodes { get; set; }
-            public List<ConnectionGene> Connections { get; set; }
+            return _id.ToString();
+        }
 
-            float _fitness;
+    }
+    public class ConnectionGene : Gene
+    {
+        protected internal double Weight { get; set; }
+        protected internal int _inputNode;
+        protected internal int _outputNode;
 
-            public Genome()
-            {
-                //initialise a standard architecture
-                Nodes = new List<NodeGene>();
-                Connections = new List<ConnectionGene>();
+        public ConnectionGene(int inputNode, int outputNode)
+        {
+            _inputNode = inputNode;
+            _outputNode = outputNode;
 
-                Nodes.Add(new NodeGene(0, "input"));
-                Nodes.Add(new NodeGene(1, "input"));
-                Nodes.Add(new NodeGene(2, "hidden"));
-                Nodes.Add(new NodeGene(3, "hidden"));
-                Nodes.Add(new NodeGene(4, "output"));
+            Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
+        }
 
-                Connections.Add(new ConnectionGene(0, 2));
-                Connections.Add(new ConnectionGene(0, 3));
-                Connections.Add(new ConnectionGene(1, 2));
-                Connections.Add(new ConnectionGene(1, 3));
-                Connections.Add(new ConnectionGene(2, 4));
-                Connections.Add(new ConnectionGene(3, 4));
+        public override string ToString()
+        {
+            return $"({_inputNode}, {_outputNode}) w = {Math.Round(Weight, 2)} ";
+        }
+    }
 
-                CalculateInputs();
 
-            }
+    public class Genome
+    {
+        public List<NodeGene> Nodes { get; set; }
+        public List<ConnectionGene> Connections { get; set; }
 
-            public NodeGene GetNodeByID(int id)
-            {
-                return Nodes.Single(x => x._id == id);
-            }
+        float _fitness;
 
-            //populate the list of input node ids into each node
-            private void CalculateInputs()
-            {
-                foreach(NodeGene nodeGene in Nodes)
-                {
-                    foreach(ConnectionGene connection in Connections)
-                    {
-                        if(connection._outputNode == nodeGene._id)
-                        {
-                            nodeGene._inputs.Add(connection._inputNode);
-                        }
-                    }
-                }
-            }
+        public Genome()
+        {
+            //initialise a standard architecture
+            Nodes = new List<NodeGene>();
+            Connections = new List<ConnectionGene>();
 
-            //mutates just the connection genes currently
-            public void Mutate()
+            Nodes.Add(new NodeGene(0, "input"));
+            Nodes.Add(new NodeGene(1, "input"));
+            Nodes.Add(new NodeGene(2, "hidden"));
+            Nodes.Add(new NodeGene(3, "hidden"));
+            Nodes.Add(new NodeGene(4, "output", "sigmoid"));
+
+            Connections.Add(new ConnectionGene(0, 2));
+            Connections.Add(new ConnectionGene(0, 3));
+            Connections.Add(new ConnectionGene(1, 2));
+            Connections.Add(new ConnectionGene(1, 3));
+            Connections.Add(new ConnectionGene(2, 4));
+            Connections.Add(new ConnectionGene(3, 4));
+
+            CalculateInputs();
+
+        }
+
+        public NodeGene GetNodeByID(int id)
+        {
+            return Nodes.Single(x => x._id == id);
+        }
+
+        //populate the list of input node ids into each node
+        private void CalculateInputs()
+        {
+            foreach(NodeGene nodeGene in Nodes)
             {
                 foreach(ConnectionGene connection in Connections)
                 {
-                    if (globalRandom.NextDouble() < mutateRate)
+                    if(connection._outputNode == nodeGene._id)
                     {
-                        //need to clamp weights?
-                        connection.Weight += (globalRandom.NextDouble() - 0.5);
+                        nodeGene._inputs.Add(connection._inputNode);
                     }
                 }
             }
+        }
 
-            public void CrossOver(Genome other)
+        //mutates just the connection genes currently
+        public void Mutate()
+        {
+            foreach(ConnectionGene connection in Connections)
             {
-
-
+                if (Config.globalRandom.NextDouble() < Config.mutateRate)
+                {
+                    //need to clamp weights?
+                    connection.Weight += (Config.globalRandom.NextDouble() - 0.5);
+                }
             }
+        }
 
-            public override string ToString()
-            {
-                string s = "Nodes : " + String.Join(" ", Nodes.Select(x => x.ToString()));
-                s += " | Conns : " + String.Join(" ", Connections.Select(x => x.ToString()));
+        public void CrossOver(Genome other)
+        {
 
-                return s;
-            }
 
         }
+
+        public override string ToString()
+        {
+            string s = "Nodes : " + String.Join(" ", Nodes.Select(x => x.ToString()));
+            s += " | Conns : " + String.Join(" ", Connections.Select(x => x.ToString()));
+
+            return s;
+        }
+
     }
+    
 }

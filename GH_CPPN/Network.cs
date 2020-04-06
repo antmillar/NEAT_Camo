@@ -4,11 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NumSharp;
+using CPPN.NEAT;
 
-
-using WIP;
-
-namespace test
+namespace CPPN.Network
 {
   
     //MODELS
@@ -20,7 +18,7 @@ namespace test
     public class Network : Model
     {
         int _inputCount;
-        NEAT.Genome _genome;
+        Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
 
         public Network(NEAT.Genome genome)
@@ -131,15 +129,26 @@ namespace test
                     }
                 }
 
-                //apply sigmoid activation to each node
+                //apply activation to each node and add bias
                 foreach(int n in layerNodes)
                 {
-                    inputs[n] = tanh.Apply(inputs[n]);
+                    IActivation act;
+                    var node = _genome.GetNodeByID(n);
+
+                    if (node._activationType == "sigmoid")
+                    {
+                        act = new Sigmoid();
+                    }
+                    else
+                    {
+                        act = new Tanh();
+                    }
+                    inputs[n] = act.Apply(inputs[n] + node._bias);
                 }
             }
 
-            var sigmoid = new Sigmoid();
-            return sigmoid.Apply(np.expand_dims(inputs[4],1)) ;
+            Console.WriteLine("");
+            return np.expand_dims(inputs[4],1) ;
         }
     }
     public class CustomModel : Model

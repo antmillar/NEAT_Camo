@@ -73,6 +73,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Display.cs" />
     <Compile Include="Network.cs" />
     <Compile Include="NEAT.cs" />
     <Compile Include="Linear.cs" />

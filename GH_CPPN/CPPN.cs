@@ -7,8 +7,11 @@ using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System.Drawing;
 using NumSharp;
-using WIP;
-using test;
+
+//custom libraries
+using CPPN.NEAT;
+using CPPN.Network;
+using CPPN.Display;
 
 namespace GH_CPPN
 {
@@ -44,77 +47,43 @@ namespace GH_CPPN
         {
 
             //double data = double.NaN;
-
             //if (!DA.GetData(0, ref data)) { return; }
-
             //if (data == double.NaN) { return; }
 
+            //var linear = new temp.CustomModel();
+            //NDArray activations = linear.ForwardPass(coords);
 
+            //var mlp = new temp.MLP(2, 1, 8);
+            //NDArray activations = mlp.ForwardPass(coords);
 
-            System.Random rand = new System.Random();
+            var genome = new Genome();
+            var network = new Network(genome);
+            network.GenerateLayers();
 
-            List<Mesh> meshes = new List<Mesh>();
             int width = 100;
-
+            var drawing = new Drawing(width);
+            
+            //populate coords
             NDArray coords = np.ones((width * width, 2));
 
-            for (int i = -width/2; i < width/2; i++)
+            for (int i = -width / 2; i < width / 2; i++)
             {
-                for (int j = -width/2; j < width/2; j++)
+                for (int j = -width / 2; j < width / 2; j++)
                 {
-                    var cell = new Mesh();
-
-                    cell.Vertices.Add(i, j, 0.0);
-                    cell.Vertices.Add(i + 1, j, 0.0);
-                    cell.Vertices.Add(i, j + 1, 0.0);
-                    cell.Vertices.Add(i + 1, j + 1, 0.0);
-
-                    cell.Faces.AddFace(0, 1, 3, 2);
-
-                    meshes.Add(cell);
-
                     //coords are in range [-0.5, 0.5]
-                    coords[(i + width/2)* width + j + width/2, 0] = 1.0 * i / width;
-                    coords[(i + width/2)* width + j + width/2, 1] = 1.0 * j / width;
-
+                    coords[(i + width / 2) * width + j + width / 2, 0] = 1.0 * i / width;
+                    coords[(i + width / 2) * width + j + width / 2, 1] = 1.0 * j / width;
                 }
             }
 
-            Rhino.Geometry.Plane plane = Rhino.Geometry.Plane.WorldXY;
+            var output = network.ForwardPass(coords);
 
-            var linear = new temp.CustomModel();
-            //NDArray activations = linear.ForwardPass(coords);
+            //paint mesh using outputs
+            Mesh combinedMesh = drawing.Paint(output);  
 
-            var mlp = new temp.MLP(2, 1, 8);
-            NDArray activations = mlp.ForwardPass(coords);
-
-            var genome = new NEAT.Genome();
-
-
-            var network = new Network(genome);
-
-            network.GenerateLayers();
-            var tem = network.ForwardPass(coords);
-
-            for (int i = 0; i < meshes.Count; i++)
-       
-            {
-                double col = tem[i, 0];
-                int intCol = (int) (col * 255);
-                Color color = Color.FromArgb(intCol, intCol, intCol);
-
-                Color[] colors = Enumerable.Repeat(color, 4).ToArray();
-                meshes[i].VertexColors.AppendColors(colors);
-            }
-
-            Mesh combinedMesh = new Mesh();
-            combinedMesh.Append(meshes);
+            //output data from GH component
             DA.SetData(0, combinedMesh);
-            DA.SetDataList(1, tem);
-
-
-
-            Console.WriteLine("TEST");
+            DA.SetDataList(1, output);
         }
     }
 }
