@@ -15,16 +15,16 @@ namespace CPPN.Display
     {
         List<Mesh> _meshes;
 
-        public Drawing(int width)
+        public Drawing(int width, int xCenter = 0, int yCenter = 0)
         {
             System.Random rand = new System.Random();
 
             //create mesh of meshes to display CPPN
             _meshes = new List<Mesh>();
 
-            for (int i = -width / 2; i < width / 2; i++)
+            for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
             {
-                for (int j = -width / 2; j < width / 2; j++)
+                for (int j = yCenter - width / 2; j < yCenter + width / 2; j++)
                 {
                     var cell = new Mesh();
 

@@ -34,6 +34,8 @@ namespace CPPN.Network
                     _inputCount += 1;
                 }
             }
+
+            GenerateLayers();
         }
 
         //calculates the layers for the network based on nodes and connections

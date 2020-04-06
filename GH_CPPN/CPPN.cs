@@ -38,8 +38,8 @@ namespace GH_CPPN
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             //pManager.AddPointParameter("points", "pts", "grid points", GH_ParamAccess.list);
-            pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.item);
-            pManager.AddNumberParameter("outputs", "outputs", "output of linear", GH_ParamAccess.list);
+            pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.list);
+            //pManager.AddNumberParameter("outputs", "outputs", "output of linear", GH_ParamAccess.list);
 
         }
 
@@ -56,13 +56,23 @@ namespace GH_CPPN
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
 
+            int popSize = 10;
+            var pop = new Population(popSize);
             var genome = new Genome();
-            var network = new Network(genome);
-            network.GenerateLayers();
 
-            int width = 100;
-            var drawing = new Drawing(width);
-            
+            List<Network> nets = new List<Network>();
+
+
+            for (int i = 0; i < popSize; i++)
+            {
+                nets.Add(new Network(pop.Genomes[i]));
+            }
+            //var network = new Network(genome);
+
+
+
+            int width = 10;
+
             //populate coords
             NDArray coords = np.ones((width * width, 2));
 
@@ -76,14 +86,30 @@ namespace GH_CPPN
                 }
             }
 
-            var output = network.ForwardPass(coords);
+            var outputs = new List<NDArray>();
+            var meshes = new List<Mesh>();
+
+            foreach (var net in nets)
+            {
+                var output = net.ForwardPass(coords);
+                outputs.Add(output);
+            }
+
+            for (int i = 0; i < outputs.Count; i++)
+            {
+                var drawing = new Drawing(width, -popSize/2 * width + i * width, 0);
+                Mesh combinedMesh = drawing.Paint(outputs[i]);
+                meshes.Add(combinedMesh);
+            }
+            
+
 
             //paint mesh using outputs
-            Mesh combinedMesh = drawing.Paint(output);  
+
 
             //output data from GH component
-            DA.SetData(0, combinedMesh);
-            DA.SetDataList(1, output);
+            DA.SetDataList(0, meshes);
+            //DA.SetDataList(1, output);
         }
     }
 }

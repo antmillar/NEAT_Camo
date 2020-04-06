@@ -17,7 +17,7 @@ namespace CPPN.NEAT
     public class Population
     {
 
-        List<Genome> Genomes { get; set; }
+        protected internal List<Genome> Genomes { get; set; }
 
         public Population(int size)
         {
