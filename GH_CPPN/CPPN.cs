@@ -88,10 +88,18 @@ namespace GH_CPPN
             var mlp = new temp.MLP(2, 1, 8);
             NDArray activations = mlp.ForwardPass(coords);
 
+            var genome = new NEAT.Genome();
+
+
+            var network = new Network(genome);
+
+            network.GenerateLayers();
+            var tem = network.ForwardPass(coords);
+
             for (int i = 0; i < meshes.Count; i++)
        
             {
-                double col = activations[i, 0];
+                double col = tem[i, 0];
                 int intCol = (int) (col * 255);
                 Color color = Color.FromArgb(intCol, intCol, intCol);
 
@@ -102,19 +110,9 @@ namespace GH_CPPN
             Mesh combinedMesh = new Mesh();
             combinedMesh.Append(meshes);
             DA.SetData(0, combinedMesh);
-            DA.SetDataList(1, activations);
+            DA.SetDataList(1, tem);
 
 
-            var pop = new NEAT.Population(10);
-            Console.WriteLine(pop);
-
-            var genome = new NEAT.Genome();
-
-            Console.WriteLine(genome);
-
-            var network = new Network(genome);
-
-            network.GenerateLayers();
 
             Console.WriteLine("TEST");
         }

@@ -88,7 +88,7 @@ namespace test
             //keep only nodes with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
 
-            _layers.Add(currentLayer);
+
 
             //recursively traverse the network
             if (nextNodes.Count == 0)
@@ -97,6 +97,7 @@ namespace test
             }
             else
             {
+                _layers.Add(currentLayer);
                 return MakeLayer(nextNodes);
             }
         }
@@ -105,13 +106,40 @@ namespace test
         {
             if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape}");
 
-            //var input0 = null;
-            //var input1 = null;
+            var inputs = new Dictionary<int, NDArray>();
+            inputs[0] = input[":,0"];
+            inputs[1] = input[":,1"];
 
-         
+            var tanh = new Tanh();
 
 
-            throw new NotImplementedException();
+            foreach (var layer in _layers)
+            {
+                var layerNodes = new List<int>();
+
+                foreach (var connection in layer)
+                {
+                    //create new key if not present
+                    if (inputs.ContainsKey(connection._outputNode)) 
+                    { 
+                        inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
+                    }
+                    else
+                    {
+                        inputs[connection._outputNode] = connection.Weight * inputs[connection._inputNode];
+                        layerNodes.Add(connection._outputNode);
+                    }
+                }
+
+                //apply sigmoid activation to each node
+                foreach(int n in layerNodes)
+                {
+                    inputs[n] = tanh.Apply(inputs[n]);
+                }
+            }
+
+            var sigmoid = new Sigmoid();
+            return sigmoid.Apply(np.expand_dims(inputs[4],1)) ;
         }
     }
     public class CustomModel : Model
