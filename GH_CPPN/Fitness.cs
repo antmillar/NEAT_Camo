@@ -37,12 +37,13 @@ namespace CPPN.Fitness
                 outputs.Add(output);
             }
 
-            var targetOutput = np.zeros(outputs[0].Shape);
+            var targetOutput = CreateTarget(outputs[0].Shape, coords);
+
             var fitnesses = new List<double>();
 
             for (int i = 0; i < outputs.Count; i++)
             {
-                var fitness = np.mean(outputs[i] - targetOutput);
+                var fitness = np.sum(np.abs(outputs[i] - targetOutput));
                 fitnesses.Add(fitness);
                 pop.Genomes[i].Fitness = fitness;
                 
@@ -54,6 +55,25 @@ namespace CPPN.Fitness
 
             //have a config setting for min max fitnesses
 
+        }
+
+        public static NDArray CreateTarget(Shape shape, NDArray coords)
+        {
+            NDArray values = np.zeros(shape);
+
+            for (int i = 0; i < values.Shape[0]; i++)
+            {   
+                //equation of circle
+                if(Math.Pow(coords[i, 0].GetDouble(),2) + Math.Pow(coords[i, 1].GetDouble(), 2) < 0.1)
+                {
+                    values[i] = 1.0;
+                }
+            }
+
+            NDArray target = np.ones(shape);
+
+
+            return values;
         }
     }
 }
