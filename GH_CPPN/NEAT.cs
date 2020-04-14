@@ -19,6 +19,7 @@ namespace CPPN.NEAT
     {
 
         protected internal List<Genome> Genomes { get; set; }
+        protected internal double totalFitness { get; set; }
 
         public Population(int size)
         {
@@ -33,18 +34,40 @@ namespace CPPN.NEAT
         //currently has to be run after the fitnesses are calculated
         public void NextGeneration()
         {
-            for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
-            {
-                Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
-            }
+
+            SortByFitness();
+
+
+            //for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
+            //{
+            //    Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
+            //}
+
+            //foreach (var genome in Genomes)
+            //{
+            //    could create a copy in here instead and return it
+            //    genome.Mutate();
+            //}
 
             foreach (var genome in Genomes)
             {
-                //could create a copy in here instead and return it
-                genome.Mutate();
-            }
+                var runningtotal = 0.0;
+                var lotteryBall = Config.globalRandom.NextDouble();
 
-            SortByFitness();
+                foreach (var other in Genomes)
+                {
+                    //using 1 minus fit, because minimising
+                    runningtotal += (1 /  other.Fitness);
+                    var proportion = runningtotal / totalFitness;
+
+                    //loop until we find the proportional selection
+                    if (lotteryBall < proportion)
+                    {
+                        genome.CrossOver(other);
+                        break;
+                    }
+                }
+            }
         }
 
         public void SortByFitness()
@@ -57,6 +80,8 @@ namespace CPPN.NEAT
             {
                 Genomes = Genomes.OrderByDescending(x => x.Fitness).ToList();
             }
+
+            totalFitness = Genomes.Select(x => 1 / x.Fitness).Sum();
         }
 
         public override string ToString()
@@ -145,6 +170,7 @@ namespace CPPN.NEAT
         public List<ConnectionGene> Connections { get; set; }
         protected internal double Fitness { get; set; }
 
+
         public Genome()
         {
             //initialise a standard architecture
@@ -176,7 +202,6 @@ namespace CPPN.NEAT
             Connections.Add(new ConnectionGene(5, 6));
 
             CalculateInputs();
-
         }
 
         //copy constructor
@@ -230,10 +255,16 @@ namespace CPPN.NEAT
             }
         }
 
+        //crossover weights between genomes
         public void CrossOver(Genome other)
         {
+            var count = Connections.Count;
+            var crossPt = Config.globalRandom.Next(count);
 
-
+            //one point crossover swap slices of lists
+            var temp = Connections.Take(crossPt).Concat(other.Connections.Skip(crossPt)).ToList();
+            other.Connections = other.Connections.Take(crossPt).Concat(Connections.Skip(crossPt)).ToList();
+            Connections = temp;
         }
 
         public override string ToString()

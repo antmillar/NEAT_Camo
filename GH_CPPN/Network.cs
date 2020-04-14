@@ -107,9 +107,8 @@ namespace CPPN.Net
             if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape}");
 
             var inputs = new Dictionary<int, NDArray>();
-            inputs[0] = input[":,0"];
-            inputs[1] = input[":,1"];
-
+            inputs[0] = input[":,0"].Clone();
+            inputs[1] = input[":,1"].Clone();
             var tanh = new Tanh();
 
 
