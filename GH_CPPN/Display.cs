@@ -1,26 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using NumSharp;
 using Rhino.Geometry;
-using NumSharp;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace TopolEvo.Display
 {
-   
+
     public class Drawing
     {
-        List<Mesh> _meshes;
 
+        //constructor
         public Drawing(int width, int xCenter = 0, int yCenter = 0)
         {
             System.Random rand = new System.Random();
-
-            //create mesh of meshes to display CPPN
-            _meshes = new List<Mesh>();
 
             for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
             {
@@ -35,15 +28,19 @@ namespace TopolEvo.Display
 
                     cell.Faces.AddFace(0, 1, 3, 2);
 
-                    _meshes.Add(cell);
+                    Meshes.Add(cell);
                 }
             }
         }
 
+        //properties
+        public List<Mesh> Meshes { get; set; } = new List<Mesh>();
+
+        //methods
         public Mesh Paint(NDArray output)
         {
             //paint the meshes
-            for (int i = 0; i < _meshes.Count; i++)
+            for (int i = 0; i < Meshes.Count; i++)
 
             {
                 double col = output[i, 0];
@@ -52,12 +49,12 @@ namespace TopolEvo.Display
                 Color color = Color.FromArgb(intCol, intCol, intCol);
 
                 Color[] colors = Enumerable.Repeat(color, 4).ToArray();
-                _meshes[i].VertexColors.AppendColors(colors);
+                Meshes[i].VertexColors.AppendColors(colors);
             }
 
             //combine the meshes
             Mesh combinedMesh = new Mesh();
-            combinedMesh.Append(_meshes);
+            combinedMesh.Append(Meshes);
 
             return combinedMesh;
         }

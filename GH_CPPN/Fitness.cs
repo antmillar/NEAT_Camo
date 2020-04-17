@@ -1,26 +1,18 @@
-﻿using System;
+﻿using NumSharp;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Rhino.Geometry;
-using NumSharp;
-using System.Drawing;
-
 using TopolEvo.NEAT;
-using TopolEvo.Architecture;
 
 namespace TopolEvo.Fitness
 {
- 
+
     public static class Fitness
     {
-        /// <summary> Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome </summary>
-        /// 
-        //user defined fitness function
+        /// <summary> 
+        /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
+        /// </summary>
         public static List<double> Function(Population pop, List<NDArray> outputs, NDArray coords)
         {
+            //create a target grid
             var targetOutput = CreateTarget(outputs[0].Shape, coords);
 
             var fitnesses = new List<double>();
@@ -50,10 +42,15 @@ namespace TopolEvo.Fitness
                 //}
 
                 //horizontal partition
-                if (coords[i, 0].GetDouble() < 0.0)
-                {
-                    values[i] = 1.0;
-                }
+                //if (coords[i, 0].GetDouble() < 0.0)
+                //{
+                //    values[i] = 1.0;
+                //}
+
+                //allblack
+
+                values[i] = 1.0;
+
             }
 
 

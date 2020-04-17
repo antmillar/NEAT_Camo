@@ -1,41 +1,46 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TopolEvo.NEAT
 {
-   
+    /// <summary>
+    /// Configuration Settings for the NEAT algorithm
+    /// </summary>
     public static class Config
     {
-        public static System.Random globalRandom = new System.Random();
-        public static double mutateRate = 0.2;
-        public static string fitnessTarget = "min";
-        
+        public const double mutateRate = 0.2;
+        public const string fitnessTarget = "min";
+
+        //global random singleton
+        public static readonly System.Random globalRandom = new System.Random();
     }
 
+    /// <summary>
+    /// Population class which holds Genomes and Fitness information
+    /// </summary>
     public class Population
     {
 
-        protected internal List<Genome> Genomes { get; set; }
-        protected internal double totalFitness { get; set; }
-
+        //constructor
         public Population(int size)
         {
-            Genomes = new List<Genome>();
-
             for (int i = 0; i < size; i++)
             {
                 Genomes.Add(new Genome());
             }
         }
 
+        //properties
+        protected internal List<Genome> Genomes { get; set; } = new List<Genome>();
+        protected internal double totalFitness { get; set; }
+
+        //methods
         //currently has to be run after the fitnesses are calculated
         public void NextGeneration()
         {
 
-            SortByFitness();
+
             //for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
             //{
             //    Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
@@ -46,9 +51,6 @@ namespace TopolEvo.NEAT
             //    //could create a copy in here instead and return it
             //    genome.Mutate();
             //}
-
-
-
 
             //replace old list with new one
             var newGenomes = new List<Genome>();
@@ -107,7 +109,7 @@ namespace TopolEvo.NEAT
 
             Genomes = newGenomes;
 
-            SortByFitness();
+
         }
 
         public void SortByFitness()
@@ -138,7 +140,7 @@ namespace TopolEvo.NEAT
 
     }
          
-    public class Gene { };
+    public abstract class Gene { };
 
     public class NodeGene : Gene
     {
@@ -303,9 +305,8 @@ namespace TopolEvo.NEAT
 
             //one point crossover swap slices of lists
 
-
             var temp = Connections.Take(crossPt).Concat(other.Connections.Skip(crossPt)).ToList();
-            other.Connections = other.Connections.Take(crossPt).Concat(Connections.Skip(crossPt)).ToList();
+            //other.Connections = other.Connections.Take(crossPt).Concat(Connections.Skip(crossPt)).ToList();
             Connections = temp;
         }
 

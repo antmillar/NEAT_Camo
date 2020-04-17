@@ -1,15 +1,11 @@
-﻿using System;
+﻿using NumSharp;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NumSharp;
 using TopolEvo.NEAT;
 
 namespace TopolEvo.Architecture
 {
-  
-    //MODELS
+
     public interface Model
     {
         NDArray ForwardPass(NDArray input);
@@ -38,13 +34,15 @@ namespace TopolEvo.Architecture
             GenerateLayers();
         }
 
-        //calculates the layers for the network based on nodes and connections
+        /// <summary>
+        /// calculates the layers for the network based on nodes and connections and generates them
+        /// </summary>
         public void GenerateLayers()
         {
             var currentNodes = new List<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
 
-            //find input nodes
+            //initialise the currentNodes with the input nodes
             foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
             {
                 if (nodeGene._type == "input")
@@ -53,9 +51,14 @@ namespace TopolEvo.Architecture
                 }
             }
 
+            //recursively creates new layers
             var output = MakeLayer(currentNodes);
 
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public List<int> MakeLayer(List<int> currentNodes)
         {
 
@@ -73,7 +76,7 @@ namespace TopolEvo.Architecture
                 }
             }
 
-            //finds nodes where all inputs are from current nodes
+            //finds nodes where all inputs are coming from the current nodes
             foreach (var id in potentialNodes)
             {
                 var inputs = _genome.GetNodeByID(id)._inputs;
@@ -88,8 +91,7 @@ namespace TopolEvo.Architecture
             //keep only nodes with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
 
-
-
+            
             //recursively traverse the network
             if (nextNodes.Count == 0)
             {
@@ -102,20 +104,28 @@ namespace TopolEvo.Architecture
             }
         }
 
+        /// <summary>
+        /// Single Forward Propagation through the network.
+        /// Returns a set of outputs 
+        /// </summary>
+        /// <param name="input">Set of coordinates</param>
+        /// <returns></returns>
         public NDArray ForwardPass(NDArray input)
         {
             if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape}");
 
             var inputs = new Dictionary<int, NDArray>();
+            //x coords
             inputs[0] = input[":,0"].Clone();
+            //y coords
             inputs[1] = input[":,1"].Clone();
-            var tanh = new Tanh();
-
-
+            
+            //loop over each layer
             foreach (var layer in _layers)
             {
                 var layerNodes = new List<int>();
 
+                //apply the weights
                 foreach (var connection in layer)
                 {
                     //create new key if not present
@@ -144,6 +154,7 @@ namespace TopolEvo.Architecture
                     {
                         act = new Tanh();
                     }
+
                     inputs[n] = act.Apply(inputs[n] + node._bias);
                 }
             }

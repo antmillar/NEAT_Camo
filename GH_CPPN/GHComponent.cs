@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Grasshopper.Kernel;
-using Rhino.Geometry;
-using System.Drawing;
+﻿using Grasshopper.Kernel;
 using NumSharp;
-
-//custom libraries
-using TopolEvo.NEAT;
+using Rhino.Geometry;
+using System;
+using System.Collections.Generic;
 using TopolEvo.Architecture;
 using TopolEvo.Display;
 using TopolEvo.Fitness;
+//custom libraries
+using TopolEvo.NEAT;
 
 namespace GH_CPPN
 {
@@ -58,7 +53,6 @@ namespace GH_CPPN
 
             bool button = false;
             if (!DA.GetData(0, ref button)) { return; }
-            if (button == null) { return; }
 
             //var linear = new temp.CustomModel();
             //NDArray activations = linear.ForwardPass(coords);
@@ -76,31 +70,45 @@ namespace GH_CPPN
 
                 pop = new Population(popSize);
 
-
                 coords = np.ones((width * width, 2));
 
                 PopulateCoords(width);
                 nets = new List<Network>();
                 outputs = new List<NDArray>();
 
-                GenerateImages(width, popSize);
+                outputs = GenerateOutputs(pop, popSize);
 
                 fits = Fitness.Function(pop, outputs, coords);
+                pop.SortByFitness();
+
+                nets.Clear();
+                outputs.Clear();
+                outputs = GenerateOutputs(pop, popSize);
+                meshes = GenerateMeshes(outputs, width, popSize);
             }
 
             //paint mesh using outputs
 
             if (button)
             {
-                pop.NextGeneration();
-                fits = Fitness.Function(pop, outputs, coords);
 
                 nets.Clear();
                 outputs.Clear();
                 meshes.Clear();
 
+                pop.NextGeneration();
+
+                outputs = GenerateOutputs(pop, popSize);
+                fits = Fitness.Function(pop, outputs, coords);
+
+                pop.SortByFitness();
+                nets.Clear();
+                outputs.Clear();
+
                 //regenerate everything
-                GenerateImages(width, popSize);
+                outputs = GenerateOutputs(pop, popSize);
+
+                meshes = GenerateMeshes(outputs, width, popSize);
 
                 //calculate the fitnesses
 
@@ -113,7 +121,7 @@ namespace GH_CPPN
 
 
         //updates networks with new genomes, passes coords through them, outputs results
-        private void GenerateImages(int width, int popSize)
+        private List<NDArray> GenerateOutputs(Population pop, int popSize)
         {
             for (int i = 0; i < popSize; i++)
             {
@@ -126,12 +134,20 @@ namespace GH_CPPN
                 outputs.Add(output);
             }
 
+            return outputs;
+
+        }
+
+        private List<Mesh> GenerateMeshes(List<NDArray> outputs, int width, int popSize)
+        {
             for (int i = 0; i < outputs.Count; i++)
             {
                 var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
                 Mesh combinedMesh = drawing.Paint(outputs[i]);
                 meshes.Add(combinedMesh);
+
             }
+            return meshes;
         }
 
         private void PopulateCoords(int width)
