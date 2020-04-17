@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CPPN.NEAT
+namespace TopolEvo.NEAT
 {
    
     public static class Config
@@ -36,8 +36,6 @@ namespace CPPN.NEAT
         {
 
             SortByFitness();
-
-
             //for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
             //{
             //    Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
@@ -45,11 +43,47 @@ namespace CPPN.NEAT
 
             //foreach (var genome in Genomes)
             //{
-            //    could create a copy in here instead and return it
+            //    //could create a copy in here instead and return it
             //    genome.Mutate();
             //}
 
-            foreach (var genome in Genomes)
+
+
+
+            //replace old list with new one
+            var newGenomes = new List<Genome>();
+            var parents = new List<Genome>();
+
+            //elitist keep the parents
+
+            for (int i = 0; i <4; i++)
+            {
+                newGenomes.Add(new Genome(Genomes[i]));
+            }
+
+            //creating two children so only loop half for the parent1 s 
+            for (int i = 0; i < 8; i++)
+            {
+                var runningtotal = 0.0;
+                var lotteryBall = Config.globalRandom.NextDouble();
+
+                foreach (var genome in Genomes)
+                {
+                    //using 1 minus fit, because minimising
+                    runningtotal += (1 / genome.Fitness);
+                    var proportion = runningtotal / totalFitness;
+
+                    //loop until we find the proportional selection
+                    if (lotteryBall < proportion)
+                    {
+                        parents.Add(genome);
+                        break;
+                    }
+                }
+            }
+
+            //loop over parent 1s
+            foreach(var parent in parents)
             {
                 var runningtotal = 0.0;
                 var lotteryBall = Config.globalRandom.NextDouble();
@@ -63,11 +97,17 @@ namespace CPPN.NEAT
                     //loop until we find the proportional selection
                     if (lotteryBall < proportion)
                     {
-                        genome.CrossOver(other);
+                        parent.CrossOver(other);
+                        newGenomes.Add(parent);
+                        newGenomes.Add(other);
                         break;
                     }
                 }
             }
+
+            Genomes = newGenomes;
+
+            SortByFitness();
         }
 
         public void SortByFitness()
@@ -262,6 +302,8 @@ namespace CPPN.NEAT
             var crossPt = Config.globalRandom.Next(count);
 
             //one point crossover swap slices of lists
+
+
             var temp = Connections.Take(crossPt).Concat(other.Connections.Skip(crossPt)).ToList();
             other.Connections = other.Connections.Take(crossPt).Concat(Connections.Skip(crossPt)).ToList();
             Connections = temp;

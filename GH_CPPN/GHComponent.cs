@@ -9,15 +9,21 @@ using System.Drawing;
 using NumSharp;
 
 //custom libraries
-using CPPN.NEAT;
-using CPPN.Net;
-using CPPN.Display;
-using CPPN.Fitness;
+using TopolEvo.NEAT;
+using TopolEvo.Architecture;
+using TopolEvo.Display;
+using TopolEvo.Fitness;
 
 namespace GH_CPPN
 {
-    public class CPPN : GH_Component
+    public class GHComponent : GH_Component
     {
+        public GHComponent() : base("Topology Evolver", "TopolEvo", "Evolving CPPNs", "TopologyEvolver", "2D")
+        {
+
+        }
+
+        //fields
         private bool init;
         private List<Mesh> meshes = new List<Mesh>();
         private Population pop;
@@ -26,10 +32,6 @@ namespace GH_CPPN
         private List<Network> nets;
         private List<NDArray> outputs;
 
-        public CPPN() : base("CPPN", "CPPN", "Constructing a 2d CPPN", "CPPN", "Simple")
-            {
-
-            }
 
         public override Guid ComponentGuid
         {
@@ -64,7 +66,7 @@ namespace GH_CPPN
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
             int width = 20;
-            int popSize = 10;
+            int popSize = 20;
 
             if (!init)
             {
@@ -91,6 +93,7 @@ namespace GH_CPPN
             if (button)
             {
                 pop.NextGeneration();
+                fits = Fitness.Function(pop, outputs, coords);
 
                 nets.Clear();
                 outputs.Clear();
@@ -100,7 +103,7 @@ namespace GH_CPPN
                 GenerateImages(width, popSize);
 
                 //calculate the fitnesses
-                fits = Fitness.Function(pop, outputs, coords);
+
             }
 
             //output data from GH component

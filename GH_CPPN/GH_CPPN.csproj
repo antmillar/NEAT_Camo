@@ -80,7 +80,7 @@
     <Compile Include="Linear.cs" />
     <Compile Include="DynamicFormsComponent.cs" />
     <Compile Include="GH_CPPNInfo.cs" />
-    <Compile Include="CPPN.cs" />
+    <Compile Include="GHComponent.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

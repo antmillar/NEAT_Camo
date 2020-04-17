@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NumSharp;
-using CPPN.NEAT;
+using TopolEvo.NEAT;
 
-namespace CPPN.Net
+namespace TopolEvo.Architecture
 {
   
     //MODELS

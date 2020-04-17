@@ -8,10 +8,10 @@ using Rhino.Geometry;
 using NumSharp;
 using System.Drawing;
 
-using CPPN.NEAT;
-using CPPN.Net;
+using TopolEvo.NEAT;
+using TopolEvo.Architecture;
 
-namespace CPPN.Fitness
+namespace TopolEvo.Fitness
 {
  
     public static class Fitness

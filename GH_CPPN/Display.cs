@@ -8,7 +8,7 @@ using Rhino.Geometry;
 using NumSharp;
 using System.Drawing;
 
-namespace CPPN.Display
+namespace TopolEvo.Display
 {
    
     public class Drawing
