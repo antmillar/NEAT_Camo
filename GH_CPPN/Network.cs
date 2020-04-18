@@ -130,13 +130,19 @@ namespace TopolEvo.Architecture
         /// <returns></returns>
         public NDArray ForwardPass(NDArray input)
         {
-            if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape}");
+            if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape[1]}");
 
             var inputs = new Dictionary<int, NDArray>();
             //x coords
             inputs[0] = input[":,0"].Clone();
             //y coords
             inputs[1] = input[":,1"].Clone();
+
+            if (input.shape[1] == 3 )
+            {
+                //z coords
+                inputs[2] = input[":,2"].Clone();
+            }
 
             //bias
             inputs[9999] = np.ones(inputs[0].shape);
@@ -174,10 +180,10 @@ namespace TopolEvo.Architecture
                     else
                     {
                         //act = new Tanh();
-                        act = new Sigmoid();
+                        act = new Tanh();
 
                     }
-
+                    //seems to apply to the bias node too, do i need to stop that?
                     inputs[n] = act.Apply(inputs[n]);
                 }
             }

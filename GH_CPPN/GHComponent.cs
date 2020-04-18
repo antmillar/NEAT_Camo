@@ -68,7 +68,7 @@ namespace GH_CPPN
 
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
-            int width = 20;
+            int width = 10;
             int popSize = 50;
 
             if (!init)
@@ -81,7 +81,7 @@ namespace GH_CPPN
 
                 coords = np.ones((width * width, 2));
 
-                PopulateCoords(width);
+                PopulateCoords(width, 2);
 
                 outputs = new Dictionary<int, NDArray>();
 
@@ -113,11 +113,9 @@ namespace GH_CPPN
             for (int i = 0; i < generations; i++)
             {
 
-                outputs.Clear();
                 meshes.Clear();
 
                 pop.NextGeneration();
-
                 outputs = pop.Evaluate(coords);
                 fits = Fitness.Function(pop, outputs, coords);
 
@@ -142,19 +140,39 @@ namespace GH_CPPN
             return meshes;
         }
 
-        private void PopulateCoords(int width)
+        private void PopulateCoords(int width, int dims)
         {
             //populate coords
-
-
-            for (int i = -width / 2; i < width / 2; i++)
+            var shift = width / 2;
+            if (dims == 2)
             {
-                for (int j = -width / 2; j < width / 2; j++)
+                for (int i = -shift; i < shift; i++)
                 {
-                    //coords are in range [-0.5, 0.5]
-                    coords[(i + width / 2) * width + j + width / 2, 0] = 1.0 * i / width;
-                    coords[(i + width / 2) * width + j + width / 2, 1] = 1.0 * j / width;
+                    for (int j = -shift; j < shift; j++)
+                    {
+                        //coords are in range [-0.5, 0.5]
+                        coords[(i + shift) * width + j + shift, 0] = 1.0 * i / width;
+                        coords[(i + shift) * width + j + shift, 1] = 1.0 * j / width;
+                    }
                 }
+            }
+
+            else if(dims == 3)
+            {
+                for (int i = -shift; i < shift; i++)
+                {
+                    for (int j = -shift; j < shift; j++)
+                    {
+                        for (int k = -shift; k < shift; k++)
+                        {
+                            //coords are in range [-0.5, 0.5]
+                            coords[(i + shift) * width + (j + shift) * width + k + shift, 0] = 1.0 * i / width;
+                            coords[(i + shift) * width + (j + shift) * width + k + shift, 1] = 1.0 * j / width;
+                            coords[(i + shift) * width + (j + shift) * width + k + shift, 2] = 1.0 * k / width;
+                        }
+                    }
+                }
+
             }
         }
     }

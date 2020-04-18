@@ -222,7 +222,7 @@ namespace TopolEvo.NEAT
         protected internal List<int> _inputs;
 
 
-        public NodeGene(int id, string type, string activationType = "sigmoid")
+        public NodeGene(int id, string type, string activationType = "tanh")
         {
             _id = id;
             _type = type;
@@ -295,7 +295,7 @@ namespace TopolEvo.NEAT
         public int ID { get; set; } 
 
 
-        public Genome()
+        public Genome(int inputNodes = 2 , int hiddenNodes = 3, int outputNodes = 1)
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();
@@ -303,35 +303,72 @@ namespace TopolEvo.NEAT
             Fitness = 0.0;
             ID = Config.genomeID++;
 
-            Nodes.Add(new NodeGene(0, "input"));
-            Nodes.Add(new NodeGene(1, "input"));
-            Nodes.Add(new NodeGene(2, "hidden"));
-            Nodes.Add(new NodeGene(3, "hidden"));
-            Nodes.Add(new NodeGene(4, "hidden"));
-            //Nodes.Add(new NodeGene(5, "hidden"));
-            Nodes.Add(new NodeGene(6, "output", "sigmoid"));
+            var nodeCount = 0;
+
+            //add input nodes and ongoing connections
+            for (int i = 0; i < inputNodes; i++)
+            {
+                Nodes.Add(new NodeGene(nodeCount, "input"));
+
+                //add connection to each node in the next layer
+                for (int j = inputNodes; j < inputNodes + hiddenNodes ; j++)
+                {
+                    Connections.Add(new ConnectionGene(nodeCount, j));
+                }
+                nodeCount++;
+            }
+            
+            //add hidden nodes and ongoing connections and biases
+            for (int i = 0; i < hiddenNodes; i++)
+            {
+                Nodes.Add(new NodeGene(nodeCount, "hidden"));
+                Connections.Add(new ConnectionGene(9999, nodeCount));
+                //add connection to each node in the next layer
+                for (int j = inputNodes + hiddenNodes; j < inputNodes + hiddenNodes + outputNodes; j++)
+                {
+                    Connections.Add(new ConnectionGene(nodeCount, j));
+                }
+
+                nodeCount++;
+            }
+
+            //add output nodes and biases
+            for (int i = 0; i < outputNodes; i++)
+            {
+                Nodes.Add(new NodeGene(nodeCount, "output", "sigmoid"));
+                Connections.Add(new ConnectionGene(9999, nodeCount));
+                nodeCount++;
+            }
+
+            //Nodes.Add(new NodeGene(0, "input"));
+            //Nodes.Add(new NodeGene(1, "input"));
+            //Nodes.Add(new NodeGene(2, "hidden"));
+            //Nodes.Add(new NodeGene(3, "hidden"));
+            //Nodes.Add(new NodeGene(4, "hidden"));
+            ////Nodes.Add(new NodeGene(5, "hidden"));
+            //Nodes.Add(new NodeGene(6, "output", "sigmoid"));
 
             Nodes.Add(new NodeGene(9999, "bias"));
 
-            Connections.Add(new ConnectionGene(0, 2));
-            Connections.Add(new ConnectionGene(0, 3));
-            Connections.Add(new ConnectionGene(0, 4));
-            //Connections.Add(new ConnectionGene(0, 5));
+            //Connections.Add(new ConnectionGene(0, 2));
+            //Connections.Add(new ConnectionGene(0, 3));
+            //Connections.Add(new ConnectionGene(0, 4));
+            ////Connections.Add(new ConnectionGene(0, 5));
 
-            Connections.Add(new ConnectionGene(1, 2));
-            Connections.Add(new ConnectionGene(1, 3));
-            Connections.Add(new ConnectionGene(1, 4));
-            //Connections.Add(new ConnectionGene(1, 5));
+            //Connections.Add(new ConnectionGene(1, 2));
+            //Connections.Add(new ConnectionGene(1, 3));
+            //Connections.Add(new ConnectionGene(1, 4));
+            ////Connections.Add(new ConnectionGene(1, 5));
 
-            Connections.Add(new ConnectionGene(2, 6));
-            Connections.Add(new ConnectionGene(3, 6));
-            Connections.Add(new ConnectionGene(4, 6));
+            //Connections.Add(new ConnectionGene(2, 6));
+            //Connections.Add(new ConnectionGene(3, 6));
+            //Connections.Add(new ConnectionGene(4, 6));
             //Connections.Add(new ConnectionGene(5, 6));
 
             //add bias connections for every non input node
-            Connections.Add(new ConnectionGene(9999, 2));
-            Connections.Add(new ConnectionGene(9999, 3));
-            Connections.Add(new ConnectionGene(9999, 6));
+            //Connections.Add(new ConnectionGene(9999, 2));
+            //Connections.Add(new ConnectionGene(9999, 3));
+            //Connections.Add(new ConnectionGene(9999, 6));
 
             CalculateInputs();
         }
