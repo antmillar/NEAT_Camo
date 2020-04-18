@@ -28,7 +28,7 @@ namespace TopolEvo.Fitness
                 
                 //L2 norm
                 
-                var fitness = np.sqrt( np.sum(np.power(entry.Value - targetOutput, 2)));
+                var fitness = np.sqrt( np.mean(np.power(entry.Value - targetOutput, 2)));
 
 
                 fitnesses.Add(fitness);
@@ -48,19 +48,19 @@ namespace TopolEvo.Fitness
             for (int i = 0; i < values.Shape[0]; i++)
             {
                 ////equation of circle
-                if (Math.Pow(coords[i, 0].GetDouble(), 2) + Math.Pow(coords[i, 1].GetDouble(), 2) < 0.2)
-                {
-                    values[i] = 1.0;
-                }
-
-                //horizontal bar
-                //if (coords[i, 1].GetDouble() < -0.25 || coords[i, 1].GetDouble() > 0.25)
+                //if (Math.Pow(coords[i, 0].GetDouble(), 2) + Math.Pow(coords[i, 1].GetDouble(), 2) < 0.2)
                 //{
                 //    values[i] = 1.0;
                 //}
 
+                //vert bar
+                if (coords[i, 0].GetDouble() < -0.25 || coords[i, 0].GetDouble() > 0.25)
+                {
+                    values[i] = 1.0;
+                }
 
-                //horizontal partition
+
+                //vert partition
                 //if (coords[i, 0].GetDouble() < 0.0)
                 //{
                 //    values[i] = 1.0;
