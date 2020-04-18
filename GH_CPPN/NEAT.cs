@@ -1,6 +1,9 @@
-﻿using System;
+﻿using NumSharp;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using TopolEvo.Architecture;
 
 namespace TopolEvo.NEAT
 {
@@ -14,6 +17,7 @@ namespace TopolEvo.NEAT
 
         //global random singleton
         public static readonly System.Random globalRandom = new System.Random();
+        public static int genomeID = 0;
     }
 
     /// <summary>
@@ -33,8 +37,11 @@ namespace TopolEvo.NEAT
 
         //properties
         protected internal List<Genome> Genomes { get; set; } = new List<Genome>();
+        protected internal List<NDArray> Outputs { get; set; } = new List<NDArray>();
         protected internal double totalFitness { get; set; }
 
+        public Genome GetGenomeByID(int id) => Genomes.Single(x => x.ID == id);
+ 
         //methods
         //currently has to be run after the fitnesses are calculated
         public void NextGeneration()
@@ -100,15 +107,30 @@ namespace TopolEvo.NEAT
                     if (lotteryBall < proportion)
                     {
                         parent.CrossOver(other);
-                        newGenomes.Add(parent);
-                        newGenomes.Add(other);
+                        newGenomes.Add(new Genome(parent));
+                        newGenomes.Add(new Genome(other));
+
                         break;
                     }
                 }
             }
-
             Genomes = newGenomes;
+        }
 
+        //evaluates the current set of genomes
+        public Dictionary<int, NDArray> Evaluate(NDArray coords)
+        {
+
+            var Outputs = new Dictionary<int, NDArray>();
+
+            for (int i = 0; i < Genomes.Count; i++)
+            {
+                var net = new Network(Genomes[i]);
+                var output = net.ForwardPass(coords);
+                Outputs[Genomes[i].ID] = output;
+            }
+
+            return Outputs;
 
         }
 
@@ -212,6 +234,8 @@ namespace TopolEvo.NEAT
         public List<ConnectionGene> Connections { get; set; }
         protected internal double Fitness { get; set; }
 
+        public int ID { get; set; } 
+
 
         public Genome()
         {
@@ -219,6 +243,7 @@ namespace TopolEvo.NEAT
             Nodes = new List<NodeGene>();
             Connections = new List<ConnectionGene>();
             Fitness = 0.0;
+            ID = Config.genomeID++;
 
             Nodes.Add(new NodeGene(0, "input"));
             Nodes.Add(new NodeGene(1, "input"));
@@ -252,8 +277,9 @@ namespace TopolEvo.NEAT
             Nodes = new List<NodeGene>();
             Connections = new List<ConnectionGene>();
             Fitness = parent.Fitness;
+            ID = Config.genomeID++;
 
-            foreach(var node in parent.Nodes)
+            foreach (var node in parent.Nodes)
             {
                 Nodes.Add(new NodeGene(node));
             }
@@ -264,10 +290,8 @@ namespace TopolEvo.NEAT
             }
         }
 
-        public NodeGene GetNodeByID(int id)
-        {
-            return Nodes.Single(x => x._id == id);
-        }
+        public NodeGene GetNodeByID(int id) => Nodes.Single(x => x._id == id);
+        
 
         //populate the list of input node ids into each node
         private void CalculateInputs()

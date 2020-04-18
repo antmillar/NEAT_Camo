@@ -24,8 +24,7 @@ namespace GH_CPPN
         private Population pop;
         private List<double> fits;
         private NDArray coords;
-        private List<Network> nets;
-        private List<NDArray> outputs;
+        private Dictionary<int, NDArray> outputs;
 
 
         public override Guid ComponentGuid
@@ -73,18 +72,15 @@ namespace GH_CPPN
                 coords = np.ones((width * width, 2));
 
                 PopulateCoords(width);
-                nets = new List<Network>();
-                outputs = new List<NDArray>();
 
-                outputs = GenerateOutputs(pop, popSize);
+                outputs = new Dictionary<int, NDArray>();
 
+                outputs = pop.Evaluate(coords);
                 fits = Fitness.Function(pop, outputs, coords);
                 pop.SortByFitness();
 
-                nets.Clear();
-                outputs.Clear();
-                outputs = GenerateOutputs(pop, popSize);
-                meshes = GenerateMeshes(outputs, width, popSize);
+   
+                meshes = GenerateMeshes(pop, outputs, width, popSize);
             }
 
             //paint mesh using outputs
@@ -92,25 +88,17 @@ namespace GH_CPPN
             if (button)
             {
 
-                nets.Clear();
                 outputs.Clear();
                 meshes.Clear();
 
                 pop.NextGeneration();
 
-                outputs = GenerateOutputs(pop, popSize);
+                outputs = pop.Evaluate(coords);
                 fits = Fitness.Function(pop, outputs, coords);
 
                 pop.SortByFitness();
-                nets.Clear();
-                outputs.Clear();
 
-                //regenerate everything
-                outputs = GenerateOutputs(pop, popSize);
-
-                meshes = GenerateMeshes(outputs, width, popSize);
-
-                //calculate the fitnesses
+                meshes = GenerateMeshes(pop, outputs, width, popSize);
 
             }
 
@@ -118,32 +106,13 @@ namespace GH_CPPN
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
         }
-
-
-        //updates networks with new genomes, passes coords through them, outputs results
-        private List<NDArray> GenerateOutputs(Population pop, int popSize)
+        
+        private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, NDArray> outputs, int width, int popSize)
         {
-            for (int i = 0; i < popSize; i++)
-            {
-                nets.Add(new Network(pop.Genomes[i]));
-            }
-
-            foreach (var net in nets)
-            {
-                var output = net.ForwardPass(coords);
-                outputs.Add(output);
-            }
-
-            return outputs;
-
-        }
-
-        private List<Mesh> GenerateMeshes(List<NDArray> outputs, int width, int popSize)
-        {
-            for (int i = 0; i < outputs.Count; i++)
+            for (int i = 0; i < pop.Genomes.Count; i++)
             {
                 var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
-                Mesh combinedMesh = drawing.Paint(outputs[i]);
+                Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
                 meshes.Add(combinedMesh);
 
             }

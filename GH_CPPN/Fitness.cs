@@ -1,5 +1,6 @@
 ﻿using NumSharp;
 using System.Collections.Generic;
+using System.Linq;
 using TopolEvo.NEAT;
 
 namespace TopolEvo.Fitness
@@ -10,20 +11,22 @@ namespace TopolEvo.Fitness
         /// <summary> 
         /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
-        public static List<double> Function(Population pop, List<NDArray> outputs, NDArray coords)
+        public static List<double> Function(Population pop, Dictionary<int, NDArray> outputs, NDArray coords)
         {
             //create a target grid
-            var targetOutput = CreateTarget(outputs[0].Shape, coords);
+            var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].Shape, coords);
 
             var fitnesses = new List<double>();
 
-            for (int i = 0; i < outputs.Count; i++)
+
+            foreach (KeyValuePair<int, NDArray> entry in outputs)
             {
-                var fitness = np.sum(np.abs(outputs[i] - targetOutput));
+                var fitness = np.sum(np.abs(entry.Value - targetOutput));
                 fitnesses.Add(fitness);
-                pop.Genomes[i].Fitness = fitness;
-                //need to connect up the fitness and output and genome better here without using indices
+                pop.GetGenomeByID(entry.Key).Fitness = fitness;
             }
+
+            fitnesses.Sort();
 
             return fitnesses;
             //have a config setting for min max fitnesses
