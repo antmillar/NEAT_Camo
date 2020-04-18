@@ -14,6 +14,7 @@ namespace TopolEvo.Architecture
     public class Network : Model
     {
         int _inputCount;
+        int _outputNode;
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
 
@@ -39,16 +40,24 @@ namespace TopolEvo.Architecture
         /// </summary>
         public void GenerateLayers()
         {
-            var currentNodes = new List<int>();
+            //use hashset as don't want repeated nodes
+            var currentNodes = new HashSet<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
 
             //initialise the currentNodes with the input nodes
+            //keep track of the output node (only one allowed)
             foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
             {
                 if (nodeGene._type == "input")
                 {
                     currentNodes.Add(nodeGene._id);
                 }
+
+                else if (nodeGene._type == "output")
+                {
+                    _outputNode = nodeGene._id;
+                }
+
             }
 
             //recursively creates new layers
@@ -59,12 +68,17 @@ namespace TopolEvo.Architecture
         /// <summary>
         /// 
         /// </summary>
-        public List<int> MakeLayer(List<int> currentNodes)
+        public HashSet<int> MakeLayer(HashSet<int> currentNodes)
         {
+            //could probably cache in here somehow?
+
+
+            //add bias to each layer
+            currentNodes.Add(9999);
 
             var currentLayer = new List<NEAT.ConnectionGene>();
-            var potentialNodes = new List<int>();
-            var nextNodes = new List<int>();
+            var potentialNodes = new HashSet<int>();
+            var nextNodes = new HashSet<int>();
 
             //find all connections starting from current nodes and their output nodes
             foreach (NEAT.ConnectionGene connectionGene in _genome.Connections)
@@ -72,7 +86,12 @@ namespace TopolEvo.Architecture
                 if (currentNodes.Contains(connectionGene._inputNode))
                 {
                     currentLayer.Add(connectionGene);
-                    potentialNodes.Add(connectionGene._outputNode);
+
+                    //add node ID to potential next layer, unless it's a bias connection
+                    if (connectionGene._inputNode != 9999)
+                    {
+                        potentialNodes.Add(connectionGene._outputNode);
+                    }
                 }
             }
 
@@ -90,7 +109,6 @@ namespace TopolEvo.Architecture
 
             //keep only nodes with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
-
             
             //recursively traverse the network
             if (nextNodes.Count == 0)
@@ -119,6 +137,9 @@ namespace TopolEvo.Architecture
             inputs[0] = input[":,0"].Clone();
             //y coords
             inputs[1] = input[":,1"].Clone();
+
+            //bias
+            inputs[9999] = np.ones(inputs[0].shape);
             
             //loop over each layer
             foreach (var layer in _layers)
@@ -152,15 +173,17 @@ namespace TopolEvo.Architecture
                     }
                     else
                     {
-                        act = new Tanh();
+                        //act = new Tanh();
+                        act = new Sigmoid();
+
                     }
 
-                    inputs[n] = act.Apply(inputs[n] + node._bias);
+                    inputs[n] = act.Apply(inputs[n]);
                 }
             }
 
             //what about more than one output?
-            return np.expand_dims(inputs[inputs.Count - 1],1) ;
+            return np.expand_dims(inputs[_outputNode],1) ;
         }
     }
 

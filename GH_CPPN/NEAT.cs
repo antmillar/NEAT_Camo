@@ -14,6 +14,7 @@ namespace TopolEvo.NEAT
     {
         public const double mutateRate = 0.2;
         public const string fitnessTarget = "min";
+        public static double survivalCutoff = 0.5;
 
         //global random singleton
         public static readonly System.Random globalRandom = new System.Random();
@@ -47,76 +48,109 @@ namespace TopolEvo.NEAT
         public void NextGeneration()
         {
 
-
-            //for (int i = Genomes.Count / 2; i < Genomes.Count; i++)
-            //{
-            //    Genomes[i] = new Genome(Genomes[i - Genomes.Count/2]);
-            //}
-
-            //foreach (var genome in Genomes)
-            //{
-            //    //could create a copy in here instead and return it
-            //    genome.Mutate();
-            //}
-
             //replace old list with new one
-            var newGenomes = new List<Genome>();
+            var children = new List<Genome>();
             var parents = new List<Genome>();
+
+            for (int i = 0; i < Genomes.Count; i++)
+            {
+                if(i >= Genomes.Count / 2)
+                {
+                    children.Add(new Genome(Genomes[i - Genomes.Count / 2]));
+                }
+                else
+                {
+                    children.Add(new Genome(Genomes[i]));
+                }
+
+            }
+
 
             //elitist keep the parents
 
             //for (int i = 0; i <4; i++)
             //{
-            //    newGenomes.Add(new Genome(Genomes[i]));
+            //    children.Add(new Genome(Genomes[i]));
             //}
 
-            //creating two children so only loop half for the parent1 s 
-            for (int i = 0; i < Genomes.Count; i++)
+            //for (int i = 0; i < Genomes.Count; i++)
+            //{
+            //    int parentCount = (int) (Genomes.Count * Config.survivalCutoff);
+
+            //    //ensure at least two parents
+            //    parentCount = Math.Max(parentCount, 2);
+
+            //    //add sorted genome to the parent pool up to cutoff percentage
+            //    for (int j = 0; i < parentCount; i++)
+            //    {
+            //        parents.Add(Genomes[i]);
+            //    }
+
+            //    ////adds genomes to parents using a fitness proportional approach
+                
+            //    //var runningtotal = 0.0;
+            //    //var lotteryBall = Config.globalRandom.NextDouble();
+
+            //    //foreach (var genome in Genomes)
+            //    //{
+
+            //    //    //using 1 / fit, because minimising
+            //    //    runningtotal += (1 / genome.Fitness);
+            //    //    var proportion = runningtotal / totalFitness;
+
+            //    //    //loop until we find the proportional selection
+            //    //    if (lotteryBall < proportion)
+            //    //    {
+            //    //        parents.Add(genome);
+            //    //        break;
+            //    //    }
+            //    //}
+            //}
+
+            ////pick random parents and cross them to get child
+            //for (int i = 0; i < Genomes.Count; i++)
+            //{
+            //    var parent1 = parents[Config.globalRandom.Next(0, parents.Count)];
+            //    var parent2 = parents[Config.globalRandom.Next(0, parents.Count)];
+
+            //    var child = new Genome();
+            //    child.CrossOver(parent1, parent2);
+
+            //    children.Add(child);
+            //}
+
+            ////loop over parent 1s
+            //foreach (var parent1 in parents)
+            //{
+            //    var runningtotal = 0.0;
+            //    var lotteryBall = Config.globalRandom.NextDouble();
+
+            //    foreach (var parent2 in Genomes)
+            //    {
+            //        //using 1 / fit, because minimising
+            //        runningtotal += (1 /  parent2.Fitness);
+            //        var proportion = runningtotal / totalFitness;
+
+            //        //loop until we find the proportional selection
+            //        if (lotteryBall < proportion)
+            //        {
+
+            //            var child = new Genome();
+            //            child.CrossOver(parent1, parent2);
+
+            //            children.Add(child);
+
+            //            break;
+            //        }
+            //    }
+            //}
+
+            foreach (var child in children)
             {
-                var runningtotal = 0.0;
-                var lotteryBall = Config.globalRandom.NextDouble();
-
-                foreach (var genome in Genomes)
-                {
-                    //using 1 minus fit, because minimising
-                    runningtotal += (1 / genome.Fitness);
-                    var proportion = runningtotal / totalFitness;
-
-                    //loop until we find the proportional selection
-                    if (lotteryBall < proportion)
-                    {
-                        parents.Add(genome);
-                        break;
-                    }
-                }
+                child.Mutate();
             }
 
-            //loop over parent 1s
-            foreach(var parent1 in parents)
-            {
-                var runningtotal = 0.0;
-                var lotteryBall = Config.globalRandom.NextDouble();
-
-                foreach (var parent2 in Genomes)
-                {
-                    //using 1 minus fit, because minimising
-                    runningtotal += (1 /  parent2.Fitness);
-                    var proportion = runningtotal / totalFitness;
-
-                    //loop until we find the proportional selection
-                    if (lotteryBall < proportion)
-                    {
-                        
-                        var child = new Genome();
-                        child.CrossOver(parent1, parent2);
-                        
-                        newGenomes.Add(child);
-
-                        break;
-                    }
-                }
-            }
-            Genomes = newGenomes;
+            Genomes = children;
         }
 
         //evaluates the current set of genomes
@@ -172,15 +206,15 @@ namespace TopolEvo.NEAT
         protected internal int _id;
         protected internal string _type;
         protected internal List<int> _inputs;
-        protected internal double _bias;
 
-        public NodeGene(int id, string type, string activationType = "tanh")
+
+        public NodeGene(int id, string type, string activationType = "sigmoid")
         {
             _id = id;
             _type = type;
             _inputs = new List<int>();
             _activationType = activationType;
-            _bias = Config.globalRandom.NextDouble() * 2 - 1.0;
+   
         }
 
         //copy constructor
@@ -190,7 +224,6 @@ namespace TopolEvo.NEAT
             _type = parent._type;
             _inputs = parent._inputs;
             _activationType = parent._activationType;
-            _bias = parent._bias;
 
         }
 
@@ -261,23 +294,30 @@ namespace TopolEvo.NEAT
             Nodes.Add(new NodeGene(2, "hidden"));
             Nodes.Add(new NodeGene(3, "hidden"));
             Nodes.Add(new NodeGene(4, "hidden"));
-            Nodes.Add(new NodeGene(5, "hidden"));
+            //Nodes.Add(new NodeGene(5, "hidden"));
             Nodes.Add(new NodeGene(6, "output", "sigmoid"));
+
+            Nodes.Add(new NodeGene(9999, "bias"));
 
             Connections.Add(new ConnectionGene(0, 2));
             Connections.Add(new ConnectionGene(0, 3));
             Connections.Add(new ConnectionGene(0, 4));
-            Connections.Add(new ConnectionGene(0, 5));
+            //Connections.Add(new ConnectionGene(0, 5));
 
             Connections.Add(new ConnectionGene(1, 2));
             Connections.Add(new ConnectionGene(1, 3));
             Connections.Add(new ConnectionGene(1, 4));
-            Connections.Add(new ConnectionGene(1, 5));
+            //Connections.Add(new ConnectionGene(1, 5));
 
             Connections.Add(new ConnectionGene(2, 6));
             Connections.Add(new ConnectionGene(3, 6));
             Connections.Add(new ConnectionGene(4, 6));
-            Connections.Add(new ConnectionGene(5, 6));
+            //Connections.Add(new ConnectionGene(5, 6));
+
+            //add bias connections for every non input node
+            Connections.Add(new ConnectionGene(9999, 2));
+            Connections.Add(new ConnectionGene(9999, 3));
+            Connections.Add(new ConnectionGene(9999, 6));
 
             CalculateInputs();
         }

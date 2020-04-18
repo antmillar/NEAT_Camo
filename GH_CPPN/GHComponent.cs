@@ -3,6 +3,7 @@ using NumSharp;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TopolEvo.Architecture;
 using TopolEvo.Display;
 using TopolEvo.Fitness;
@@ -37,6 +38,8 @@ namespace GH_CPPN
         {
             //pManager.AddTextParameter("input text", "i", "string to reverse", GH_ParamAccess.item);
             pManager.AddBooleanParameter("toggle generation", "toggle", "run the next generation", GH_ParamAccess.item);
+            pManager.AddNumberParameter("survival cutoff", "survival cutoff", "survival cutoff", GH_ParamAccess.item);
+
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -44,14 +47,21 @@ namespace GH_CPPN
             //pManager.AddPointParameter("points", "pts", "grid points", GH_ParamAccess.list);
             pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.list);
             pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
-
+            pManager.AddNumberParameter("mean fitness", "mean fitness", "means of fitnesses", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
 
             bool button = false;
+            double cutoff = 0.5;
+
             if (!DA.GetData(0, ref button)) { return; }
+            if (!DA.GetData(1, ref cutoff)) { return; }
+
+            if (button == null) { return; }
+            if (cutoff == null) { return; }
+
 
             //var linear = new temp.CustomModel();
             //NDArray activations = linear.ForwardPass(coords);
@@ -87,6 +97,21 @@ namespace GH_CPPN
 
             if (button)
             {
+                Config.survivalCutoff = cutoff;
+                Run(50, width, popSize);
+            }
+
+            //output data from GH component
+            DA.SetDataList(0, meshes);
+            DA.SetDataList(1, fits);
+            DA.SetData(2, fits.Average());
+        }
+
+
+        private List<Mesh> Run(int generations, int width, int popSize)
+        {
+            for (int i = 0; i < generations; i++)
+            {
 
                 outputs.Clear();
                 meshes.Clear();
@@ -98,13 +123,11 @@ namespace GH_CPPN
 
                 pop.SortByFitness();
 
-                meshes = GenerateMeshes(pop, outputs, width, popSize);
-
             }
 
-            //output data from GH component
-            DA.SetDataList(0, meshes);
-            DA.SetDataList(1, fits);
+            meshes = GenerateMeshes(pop, outputs, width, popSize);
+
+            return meshes;
         }
         
         private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, NDArray> outputs, int width, int popSize)
