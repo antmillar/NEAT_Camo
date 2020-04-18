@@ -37,7 +37,7 @@ namespace TopolEvo.Fitness
             NDArray values = np.zeros(shape);
 
             for (int i = 0; i < values.Shape[0]; i++)
-            {   
+            {
                 ////equation of circle
                 //if(Math.Pow(coords[i, 0].GetDouble(),2) + Math.Pow(coords[i, 1].GetDouble(), 2) < 0.3)
                 //{
@@ -50,7 +50,7 @@ namespace TopolEvo.Fitness
                 //    values[i] = 1.0;
                 //}
 
-                //allblack
+                //all white
 
                 values[i] = 1.0;
 

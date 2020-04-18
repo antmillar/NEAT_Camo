@@ -65,13 +65,13 @@ namespace TopolEvo.NEAT
 
             //elitist keep the parents
 
-            for (int i = 0; i <4; i++)
-            {
-                newGenomes.Add(new Genome(Genomes[i]));
-            }
+            //for (int i = 0; i <4; i++)
+            //{
+            //    newGenomes.Add(new Genome(Genomes[i]));
+            //}
 
             //creating two children so only loop half for the parent1 s 
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < Genomes.Count; i++)
             {
                 var runningtotal = 0.0;
                 var lotteryBall = Config.globalRandom.NextDouble();
@@ -92,23 +92,25 @@ namespace TopolEvo.NEAT
             }
 
             //loop over parent 1s
-            foreach(var parent in parents)
+            foreach(var parent1 in parents)
             {
                 var runningtotal = 0.0;
                 var lotteryBall = Config.globalRandom.NextDouble();
 
-                foreach (var other in Genomes)
+                foreach (var parent2 in Genomes)
                 {
                     //using 1 minus fit, because minimising
-                    runningtotal += (1 /  other.Fitness);
+                    runningtotal += (1 /  parent2.Fitness);
                     var proportion = runningtotal / totalFitness;
 
                     //loop until we find the proportional selection
                     if (lotteryBall < proportion)
                     {
-                        parent.CrossOver(other);
-                        newGenomes.Add(new Genome(parent));
-                        newGenomes.Add(new Genome(other));
+                        
+                        var child = new Genome();
+                        child.CrossOver(parent1, parent2);
+                        
+                        newGenomes.Add(child);
 
                         break;
                     }
@@ -221,6 +223,15 @@ namespace TopolEvo.NEAT
             Weight = parent.Weight;
         }
 
+        //pick a weight randomly from parents
+        public void CrossOver(ConnectionGene parent1, ConnectionGene parent2)
+        {
+
+            var test = Config.globalRandom.NextDouble();
+            Weight = test > 0.5 ? parent1.Weight : parent2.Weight;
+
+        }
+
         public override string ToString()
         {
             return $"({_inputNode}, {_outputNode}) w = {Math.Round(Weight, 2)} ";
@@ -321,17 +332,25 @@ namespace TopolEvo.NEAT
             }
         }
 
-        //crossover weights between genomes
-        public void CrossOver(Genome other)
+        /// <summary>
+        /// Crossover weights randomly between matching connections.
+        /// </summary>
+        /// <param name="other"></param>
+        public void CrossOver(Genome parent1, Genome parent2)
         {
-            var count = Connections.Count;
-            var crossPt = Config.globalRandom.Next(count);
+            //apply random crossover for each gene
+            for (int i = 0; i < Connections.Count; i++)
+            {
+                Connections[i].CrossOver(parent1.Connections[i], parent2.Connections[i]);
+            }
 
-            //one point crossover swap slices of lists
+            ////alternative single crossover point based approach
 
-            var temp = Connections.Take(crossPt).Concat(other.Connections.Skip(crossPt)).ToList();
-            //other.Connections = other.Connections.Take(crossPt).Concat(Connections.Skip(crossPt)).ToList();
-            Connections = temp;
+            //var count = parent1.Connections.Count;
+            //var crossPt = Config.globalRandom.Next(count);
+
+            ////one point crossover swap slices of lists
+            //Connections = parent1.Connections.Take(crossPt).Concat(parent2.Connections.Skip(crossPt)).ToList();
         }
 
         public override string ToString()

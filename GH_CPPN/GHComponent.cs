@@ -59,7 +59,7 @@ namespace GH_CPPN
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
             int width = 20;
-            int popSize = 20;
+            int popSize = 50;
 
             if (!init)
             {
