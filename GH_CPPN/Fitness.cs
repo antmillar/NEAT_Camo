@@ -48,16 +48,16 @@ namespace TopolEvo.Fitness
             for (int i = 0; i < values.Shape[0]; i++)
             {
                 ////equation of circle
-                //if (Math.Pow(coords[i, 0].GetDouble(), 2) + Math.Pow(coords[i, 1].GetDouble(), 2) < 0.2)
-                //{
-                //    values[i] = 1.0;
-                //}
-
-                //vert bar
-                if (coords[i, 0].GetDouble() < -0.25 || coords[i, 0].GetDouble() > 0.25)
+                if (Math.Pow(coords[i, 0].GetDouble(), 2) + Math.Pow(coords[i, 1].GetDouble(), 2) + Math.Pow(coords[i, 2].GetDouble(), 2)  < 0.2)
                 {
                     values[i] = 1.0;
                 }
+
+                //vert bar
+                //if (coords[i, 0].GetDouble() < -0.25 || coords[i, 0].GetDouble() > 0.25)
+                //{
+                //    values[i] = 1.0;
+                //}
 
 
                 //vert partition

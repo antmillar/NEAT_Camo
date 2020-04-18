@@ -79,9 +79,9 @@ namespace GH_CPPN
 
                 pop = new Population(popSize);
 
-                coords = np.ones((width * width, 2));
+                coords = np.ones((width * width * width, 3));
 
-                PopulateCoords(width, 2);
+                coords = PopulateCoords(width, 3);
 
                 outputs = new Dictionary<int, NDArray>();
 
@@ -89,7 +89,7 @@ namespace GH_CPPN
                 fits = Fitness.Function(pop, outputs, coords);
                 pop.SortByFitness();
 
-   
+
                 meshes = GenerateMeshes(pop, outputs, width, popSize);
             }
 
@@ -98,7 +98,7 @@ namespace GH_CPPN
             if (button)
             {
                 Config.survivalCutoff = cutoff;
-                Run(50, width, popSize);
+                Run(100, width, popSize);
             }
 
             //output data from GH component
@@ -123,6 +123,7 @@ namespace GH_CPPN
 
             }
 
+
             meshes = GenerateMeshes(pop, outputs, width, popSize);
 
             return meshes;
@@ -132,18 +133,23 @@ namespace GH_CPPN
         {
             for (int i = 0; i < pop.Genomes.Count; i++)
             {
-                var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
-                Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
-                meshes.Add(combinedMesh);
+                //var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
+                //Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
+                //meshes.Add(combinedMesh);
 
+                var volume = new Volume(width, -popSize / 2 * (width + 1) + i * (width + 1));
+                Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i].ID]);
+                meshes.Add(combinedMesh);
             }
             return meshes;
         }
 
-        private void PopulateCoords(int width, int dims)
+        private NDArray PopulateCoords(int width, int dims)
         {
             //populate coords
+
             var shift = width / 2;
+
             if (dims == 2)
             {
                 for (int i = -shift; i < shift; i++)
@@ -166,14 +172,16 @@ namespace GH_CPPN
                         for (int k = -shift; k < shift; k++)
                         {
                             //coords are in range [-0.5, 0.5]
-                            coords[(i + shift) * width + (j + shift) * width + k + shift, 0] = 1.0 * i / width;
-                            coords[(i + shift) * width + (j + shift) * width + k + shift, 1] = 1.0 * j / width;
-                            coords[(i + shift) * width + (j + shift) * width + k + shift, 2] = 1.0 * k / width;
+                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 0] = 1.0 * i / width;
+                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 1] = 1.0 * j / width;
+                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 2] = 1.0 * k / width;
                         }
                     }
                 }
 
             }
+
+            return coords;
         }
     }
 }

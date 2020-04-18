@@ -61,4 +61,81 @@ namespace TopolEvo.Display
 
 
     }
+
+    
+    public class Volume
+    {
+
+        //constructor
+        public Volume(int width, int xCenter = 0, int yCenter = 0, int zCenter = 0)
+        {
+            System.Random rand = new System.Random();
+
+            for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
+            {
+                for (int j = yCenter - width / 2; j < yCenter + width / 2; j++)
+                {
+                    for (int k = zCenter - width / 2; k < zCenter + width / 2; k++)
+                    {
+                        var cube = new Mesh();
+
+                        cube.Vertices.Add(i, j, k);
+                        cube.Vertices.Add(i + 1, j, k);
+                        cube.Vertices.Add(i, j + 1, k);
+                        cube.Vertices.Add(i + 1, j + 1, k);
+
+                        cube.Vertices.Add(i, j, k+1);
+                        cube.Vertices.Add(i + 1, j, k+1);
+                        cube.Vertices.Add(i, j + 1, k+1);
+                        cube.Vertices.Add(i + 1, j + 1, k+1);
+
+                        cube.Faces.AddFace(0, 1, 3, 2);
+                        cube.Faces.AddFace(1, 5, 7, 3);
+                        cube.Faces.AddFace(5, 4, 6, 7);
+                        cube.Faces.AddFace(4, 0, 2, 6);
+                        cube.Faces.AddFace(0, 1, 5, 4);
+                        cube.Faces.AddFace(2, 3, 7, 6);
+
+                        Meshes.Add(cube);
+                    }
+                }
+            }
+        }
+
+        //properties
+        public List<Mesh> Meshes { get; set; } = new List<Mesh>();
+
+        //methods
+        public Mesh Paint(NDArray output)
+        {
+
+            List<Mesh> keepMeshes = new List<Mesh>();
+
+            //paint the meshes
+            for (int i = 0; i < Meshes.Count; i++)
+
+            {
+                double col = output[i, 0];
+                //if (col > 1.0) col = 1.0;
+                //int intCol = (int)(col * 255);
+                //Color color = Color.FromArgb(10, intCol, intCol, intCol);
+
+                //Color[] colors = Enumerable.Repeat(color, 8).ToArray();
+                //Meshes[i].VertexColors.AppendColors(colors);
+
+                if(col > 0.5)
+                    keepMeshes.Add(Meshes[i]);
+            }
+
+            
+
+            //combine the meshes
+            Mesh combinedMesh = new Mesh();
+            combinedMesh.Append(keepMeshes);
+
+            return combinedMesh;
+        }
+
+
+    }
 }

@@ -295,7 +295,7 @@ namespace TopolEvo.NEAT
         public int ID { get; set; } 
 
 
-        public Genome(int inputNodes = 2 , int hiddenNodes = 3, int outputNodes = 1)
+        public Genome(int inputNodes = 3 , int hiddenNodes = 6, int outputNodes = 1)
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();
