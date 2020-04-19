@@ -17,6 +17,8 @@ namespace TopolEvo.Architecture
         int _outputNode;
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
+        public List<List<int>> _layersNodes;
+        public List<NDArray> _layersMatrices;
 
         public Network(NEAT.Genome genome)
         {
@@ -43,6 +45,8 @@ namespace TopolEvo.Architecture
             //use hashset as don't want repeated nodes
             var currentNodes = new HashSet<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
+            _layersNodes = new List<List<int>>();
+            _layersMatrices = new List<NDArray>();
 
             //initialise the currentNodes with the input nodes
             //keep track of the output node (only one allowed)
@@ -109,7 +113,27 @@ namespace TopolEvo.Architecture
 
             //keep only nodes with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
-            
+
+            //create an NDArray to represent the layer of connections
+            //each column represents an output node
+            //each node can have a variable number of inputs, so matrix will be sparse
+            //for the height of columns will use the number of nodes in previous layer, lazy upper bound
+
+            NDArray layerMatrix = np.zeros((currentNodes.Count, nextNodes.Count));
+
+            var nextNodeList = nextNodes.ToList();
+            var nodeCountList = new int[nextNodeList.Count];
+
+            foreach (var connection in currentLayer)
+            {
+                var index = nextNodeList.IndexOf(connection._outputNode);
+                layerMatrix[nodeCountList[index], index] = connection.Weight;
+                nodeCountList[index]++;
+            }
+
+
+
+
             //recursively traverse the network
             if (nextNodes.Count == 0)
             {
@@ -117,7 +141,9 @@ namespace TopolEvo.Architecture
             }
             else
             {
+                _layersMatrices.Add(layerMatrix);
                 _layers.Add(currentLayer);
+                _layersNodes.Add(nextNodes.ToList());
                 return MakeLayer(nextNodes);
             }
         }
@@ -132,7 +158,31 @@ namespace TopolEvo.Architecture
         {
             if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape[1]}");
 
+            var sigmoid = new Sigmoid();
+            var tanh = new Tanh();
+
             var inputs = new Dictionary<int, NDArray>();
+            var valuesMatrices = new Dictionary<int, NDArray>();
+
+            var firstMatrix = np.zeros(input.shape[0], 4);
+            firstMatrix[Slice.All, 0] = input[":,0"].Clone();
+            firstMatrix[Slice.All, 1] = input[":,1"].Clone();
+            firstMatrix[Slice.All, 2] = input[":,2"].Clone();
+            firstMatrix[Slice.All, 3] = np.ones(input.shape[0]);
+
+            var test = np.dot(firstMatrix,_layersMatrices[0]);
+            test = tanh.Apply(test);
+            test = np.concatenate((test, np.ones((input.shape[0], 1))),1 );
+
+            var output = np.dot(test, _layersMatrices[1]);
+            output = sigmoid.Apply(output);
+
+            //don't add the bias node twice
+            for (int i = 0; i < _genome.Nodes.Count - 1; i++)
+            {
+                inputs[i] = np.zeros(input.shape[0]);
+            }
+
             //x coords
             inputs[0] = input[":,0"].Clone();
             //y coords
@@ -146,50 +196,48 @@ namespace TopolEvo.Architecture
 
             //bias
             inputs[9999] = np.ones(inputs[0].shape);
+
+
             
             //loop over each layer
-            foreach (var layer in _layers)
+            for(int i = 0; i < _layers.Count; i++)
             {
-                var layerNodes = new List<int>();
-
-                //apply the weights
-                foreach (var connection in layer)
+                //apply the weights for each connection in layer
+                for (int j = 0; j < _layers[i].Count; j++)
                 {
-                    //create new key if not present
-                    if (inputs.ContainsKey(connection._outputNode)) 
-                    { 
-                        inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
-                    }
-                    else
-                    {
-                        inputs[connection._outputNode] = connection.Weight * inputs[connection._inputNode];
-                        layerNodes.Add(connection._outputNode);
-                    }
+                    ConnectionGene connection = _layers[i][j];
+                    inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
                 }
 
-                //apply activation to each node and add bias
-                foreach(int n in layerNodes)
-                {
-                    IActivation act;
-                    var node = _genome.GetNodeByID(n);
 
-                    if (node._activationType == "sigmoid")
+                //apply activation to each node and add bias
+                //foreach(int num in _layersNodes[i])
+               for (int j = 0; j < _layersNodes[i].Count; j++)
+                {
+                    int num = _layersNodes[i][j];
+
+                    IActivation act;
+
+                    if (_genome.GetNodeByID(num)._activationType == "sigmoid")
                     {
-                        act = new Sigmoid();
+                        act = sigmoid;
                     }
                     else
                     {
                         //act = new Tanh();
-                        act = new Tanh();
+                        act = tanh;
 
                     }
                     //seems to apply to the bias node too, do i need to stop that?
-                    inputs[n] = act.Apply(inputs[n]);
+                    inputs[num] = act.Apply(inputs[num]);
                 }
             }
 
+            var output2 = np.expand_dims(inputs[_outputNode], 1);
+
+            var diff = output2 - output;
             //what about more than one output?
-            return np.expand_dims(inputs[_outputNode],1) ;
+            return output;
         }
     }
 

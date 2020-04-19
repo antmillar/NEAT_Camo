@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using TopolEvo.Architecture;
 
 namespace TopolEvo.NEAT
@@ -173,12 +174,23 @@ namespace TopolEvo.NEAT
 
             var Outputs = new Dictionary<int, NDArray>();
 
-            for (int i = 0; i < Genomes.Count; i++)
-            {
-                var net = new Network(Genomes[i]);
-                var output = net.ForwardPass(coords);
-                Outputs[Genomes[i].ID] = output;
-            }
+
+            //convert each genome into a network and evaluate it
+            //fine in parallel as not interrelated
+            Parallel.For(0, Genomes.Count, (i) =>
+                {
+                    var net = new Network(Genomes[i]);
+                    var output = net.ForwardPass(coords);
+                    Outputs[Genomes[i].ID] = output;
+                }
+             );
+            
+                //for (int i = 0; i < Genomes.Count; i++)
+            //{
+            //    var net = new Network(Genomes[i]);
+            //    var output = net.ForwardPass(coords);
+            //    Outputs[Genomes[i].ID] = output;
+            //}
 
             return Outputs;
 
@@ -195,7 +207,7 @@ namespace TopolEvo.NEAT
                 Genomes = Genomes.OrderByDescending(x => x.Fitness).ToList();
             }
 
-            totalFitness = Genomes.Select(x => 1 / x.Fitness).Sum();
+            //totalFitness = Genomes.Select(x => 1 / x.Fitness).Sum();
         }
 
         public override string ToString()

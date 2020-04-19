@@ -98,7 +98,7 @@ namespace GH_CPPN
             if (button)
             {
                 Config.survivalCutoff = cutoff;
-                Run(100, width, popSize);
+                Run(10, width, popSize);
             }
 
             //output data from GH component
@@ -112,10 +112,8 @@ namespace GH_CPPN
         {
             for (int i = 0; i < generations; i++)
             {
-
-                meshes.Clear();
-
                 pop.NextGeneration();
+
                 outputs = pop.Evaluate(coords);
                 fits = Fitness.Function(pop, outputs, coords);
 
@@ -131,16 +129,37 @@ namespace GH_CPPN
         
         private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, NDArray> outputs, int width, int popSize)
         {
-            for (int i = 0; i < pop.Genomes.Count; i++)
-            {
-                //var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
-                //Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
-                //meshes.Add(combinedMesh);
+            meshes.Clear();
+            //draw a grid of results
+            var gridSide = (int) Math.Ceiling(Math.Sqrt(popSize));
 
-                var volume = new Volume(width, -popSize / 2 * (width + 1) + i * (width + 1));
-                Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i].ID]);
-                meshes.Add(combinedMesh);
+            var count = 0;
+
+            for (int i = 0; i < gridSide; i++)
+            {
+                for (int j = 0; j < gridSide; j++)
+                {
+                    if(count < popSize)
+                    {
+                        var volume = new Volume(width, -gridSide / 2 * (width + 3) + i * (width + 3), -gridSide / 2 * (width + 3) + j * (width + 3));
+                        Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i * gridSide + j].ID]);
+                        meshes.Add(combinedMesh);
+                    }
+
+                    count++;
+                }
             }
+
+            //for (int i = 0; i < pop.Genomes.Count; i++)
+            //{
+            //    //var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
+            //    //Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
+            //    //meshes.Add(combinedMesh);
+
+            //    var volume = new Volume(width, -popSize / 2 * (width + 1) + i * (width + 1));
+            //    Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i].ID]);
+            //    meshes.Add(combinedMesh);
+            //}
             return meshes;
         }
 
