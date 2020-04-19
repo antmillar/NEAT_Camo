@@ -23,8 +23,7 @@ namespace TopolEvo.Architecture
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
         public List<List<int>> _layersNodes;
-        public List<NDArray> _layersMatrices;
-        public List<Matrix<double>> _layersMatrixs;
+        public List<Matrix<double>> _layersMatrices;
         public Network(NEAT.Genome genome)
         {
             _inputCount = 0;
@@ -51,8 +50,7 @@ namespace TopolEvo.Architecture
             var currentNodes = new HashSet<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
             _layersNodes = new List<List<int>>();
-            _layersMatrices = new List<NDArray>();
-            _layersMatrixs = new List<Matrix<double>>(); 
+            _layersMatrices = new List<Matrix<double>>(); 
             //initialise the currentNodes with the input nodes
             //keep track of the output node (only one allowed)
             foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
@@ -142,16 +140,11 @@ namespace TopolEvo.Architecture
                 foreach (var connection in currentLayer)
                 {
                     var index = nextNodeList.IndexOf(connection._outputNode);
-                    layerMatrix[nodeCountList[index], index] = connection.Weight;
                     testMatrix[nodeCountList[index], index] = connection.Weight;
                     nodeCountList[index]++;
                 }
 
-
-
-
-                _layersMatrices.Add(layerMatrix);
-                _layersMatrixs.Add(testMatrix);
+                _layersMatrices.Add(testMatrix);
                 _layers.Add(currentLayer);
                 _layersNodes.Add(nextNodes.ToList());
                 return MakeLayer(nextNodes);
@@ -168,17 +161,6 @@ namespace TopolEvo.Architecture
         {
             if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape[1]}");
 
-            var sigmoid = new Sigmoid();
-            var tanh = new Tanh();
-
-            //var inputs = new Dictionary<int, NDArray>();
-            //var valuesMatrices = new Dictionary<int, NDArray>();
-
-            //var Vectora = Vector<float>.Build.Dense(aArray);
-            //var matrixb = Matrix<float>.Build.DenseOfRowMajor(110000, 1024, bArray);
-
-            //var matrixc = matrixb * Vectora; // 27ms
-
             var testMatrix = Matrix<double>.Build.Dense(input.shape[0], 4, 0);
 
             var x = Vector<double>.Build.Dense(input[":,0"].ToArray<double>());
@@ -186,6 +168,7 @@ namespace TopolEvo.Architecture
             var z = Vector<double>.Build.Dense(input[":,2"].ToArray<double>());
             var bias = Vector<double>.Build.Dense(input.shape[0], 1.0);
             var biasMatrix = Matrix<double>.Build.Dense(input.shape[0], 1);
+
             biasMatrix.SetColumn(0, bias);
 
             testMatrix.SetColumn(0, x);
@@ -193,13 +176,7 @@ namespace TopolEvo.Architecture
             testMatrix.SetColumn(2, z);
             testMatrix.SetColumn(3, bias);
 
-
-            var firstMatrix = np.zeros(input.shape[0], 4);
-            firstMatrix[":, 0:3"] = input[":,0:3"].Clone();
-            firstMatrix[":, 3"] = np.ones(input.shape[0]);
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            var B = testMatrix * _layersMatrixs[0];
+            var B = testMatrix * _layersMatrices[0];
             B.Map(Trig.Tanh, B);
 
             var ary = new Matrix<double>[,] { { B, biasMatrix } };
@@ -207,10 +184,9 @@ namespace TopolEvo.Architecture
             var D = Matrix<double>.Build.DenseOfMatrixArray(ary);
 
 
-            var C = D * _layersMatrixs[1];
+            var C = D * _layersMatrices[1];
             C.Map(SpecialFunctions.Logistic, C);
 
-            stopwatch.Stop();
 
             //var t1 = stopwatch.ElapsedTicks;
 

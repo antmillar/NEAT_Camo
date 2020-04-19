@@ -142,7 +142,7 @@ namespace GH_CPPN
                     if(count < popSize)
                     {
                         var volume = new Volume(width, -gridSide / 2 * (width + 3) + i * (width + 3), -gridSide / 2 * (width + 3) + j * (width + 3));
-                        Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i * gridSide + j].ID]);
+                        Mesh combinedMesh = volume.Filter(outputs[pop.Genomes[i * gridSide + j].ID]);
                         meshes.Add(combinedMesh);
                     }
 

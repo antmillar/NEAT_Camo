@@ -106,7 +106,7 @@ namespace TopolEvo.Display
         public List<Mesh> Meshes { get; set; } = new List<Mesh>();
 
         //methods
-        public Mesh Paint(NDArray output)
+        public Mesh Filter(NDArray output)
         {
 
             List<Mesh> keepMeshes = new List<Mesh>();
@@ -116,12 +116,6 @@ namespace TopolEvo.Display
 
             {
                 double col = output[i, 0];
-                //if (col > 1.0) col = 1.0;
-                //int intCol = (int)(col * 255);
-                //Color color = Color.FromArgb(10, intCol, intCol, intCol);
-
-                //Color[] colors = Enumerable.Repeat(color, 8).ToArray();
-                //Meshes[i].VertexColors.AppendColors(colors);
 
                 if(col > 0.5)
                     keepMeshes.Add(Meshes[i]);

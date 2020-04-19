@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using TopolEvo.NEAT;
 
 namespace TopolEvo.Fitness
@@ -18,8 +19,7 @@ namespace TopolEvo.Fitness
             var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].Shape, coords);
 
             var fitnesses = new List<double>();
-
-
+    
             foreach (KeyValuePair<int, NDArray> entry in outputs)
             {
                 
