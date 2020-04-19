@@ -1,4 +1,5 @@
-﻿using NumSharp;
+﻿
+using NumSharp;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -176,13 +177,17 @@ namespace TopolEvo.NEAT
 
             //convert each genome into a network and evaluate it
             //fine in parallel as not interrelated
+
+
             //Parallel.For(0, Genomes.Count, (i) =>
             //    {
+
             //        var net = new Network(Genomes[i]);
             //        var output = net.ForwardPass(coords);
             //        Outputs[Genomes[i].ID] = output;
             //    }
             // );
+
 
             for (int i = 0; i < Genomes.Count; i++)
             {
@@ -191,6 +196,7 @@ namespace TopolEvo.NEAT
                 Outputs[Genomes[i].ID] = output;
             }
 
+            ProcessThreadCollection currentThreads = Process.GetCurrentProcess().Threads;
             return Outputs;
 
         }

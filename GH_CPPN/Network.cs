@@ -197,8 +197,8 @@ namespace TopolEvo.Architecture
             var firstMatrix = np.zeros(input.shape[0], 4);
             firstMatrix[":, 0:3"] = input[":,0:3"].Clone();
             firstMatrix[":, 3"] = np.ones(input.shape[0]);
-            //Stopwatch stopwatch = Stopwatch.StartNew();
-            
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
             var B = testMatrix * _layersMatrixs[0];
             B.Map(Trig.Tanh, B);
 
@@ -210,7 +210,7 @@ namespace TopolEvo.Architecture
             var C = D * _layersMatrixs[1];
             C.Map(SpecialFunctions.Logistic, C);
 
-            //stopwatch.Stop();
+            stopwatch.Stop();
 
             //var t1 = stopwatch.ElapsedTicks;
 
@@ -228,7 +228,7 @@ namespace TopolEvo.Architecture
 
             var output = new NDArray(C.ToArray());
 
-     
+
             var l = "";
 
             ////don't add the bias node twice
