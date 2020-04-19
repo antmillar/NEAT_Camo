@@ -1,7 +1,12 @@
 ﻿using NumSharp;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using TopolEvo.NEAT;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics;
 
 namespace TopolEvo.Architecture
 {
@@ -19,7 +24,7 @@ namespace TopolEvo.Architecture
         public List<List<NEAT.ConnectionGene>> _layers;
         public List<List<int>> _layersNodes;
         public List<NDArray> _layersMatrices;
-
+        public List<Matrix<double>> _layersMatrixs;
         public Network(NEAT.Genome genome)
         {
             _inputCount = 0;
@@ -47,7 +52,7 @@ namespace TopolEvo.Architecture
             _layers = new List<List<NEAT.ConnectionGene>>();
             _layersNodes = new List<List<int>>();
             _layersMatrices = new List<NDArray>();
-
+            _layersMatrixs = new List<Matrix<double>>(); 
             //initialise the currentNodes with the input nodes
             //keep track of the output node (only one allowed)
             foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
@@ -114,25 +119,6 @@ namespace TopolEvo.Architecture
             //keep only nodes with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
 
-            //create an NDArray to represent the layer of connections
-            //each column represents an output node
-            //each node can have a variable number of inputs, so matrix will be sparse
-            //for the height of columns will use the number of nodes in previous layer, lazy upper bound
-
-            NDArray layerMatrix = np.zeros((currentNodes.Count, nextNodes.Count));
-
-            var nextNodeList = nextNodes.ToList();
-            var nodeCountList = new int[nextNodeList.Count];
-
-            foreach (var connection in currentLayer)
-            {
-                var index = nextNodeList.IndexOf(connection._outputNode);
-                layerMatrix[nodeCountList[index], index] = connection.Weight;
-                nodeCountList[index]++;
-            }
-
-
-
 
             //recursively traverse the network
             if (nextNodes.Count == 0)
@@ -141,7 +127,31 @@ namespace TopolEvo.Architecture
             }
             else
             {
+
+                //create an NDArray to represent the layer of connections
+                //each column represents an output node
+                //each node can have a variable number of inputs, so matrix will be sparse
+                //for the height of columns will use the number of nodes in previous layer, lazy upper bound
+
+                NDArray layerMatrix = np.zeros((currentNodes.Count, nextNodes.Count));
+                var testMatrix = Matrix<double>.Build.Dense(currentNodes.Count, nextNodes.Count, 0);
+
+                var nextNodeList = nextNodes.ToList();
+                var nodeCountList = new int[nextNodeList.Count];
+
+                foreach (var connection in currentLayer)
+                {
+                    var index = nextNodeList.IndexOf(connection._outputNode);
+                    layerMatrix[nodeCountList[index], index] = connection.Weight;
+                    testMatrix[nodeCountList[index], index] = connection.Weight;
+                    nodeCountList[index]++;
+                }
+
+
+
+
                 _layersMatrices.Add(layerMatrix);
+                _layersMatrixs.Add(testMatrix);
                 _layers.Add(currentLayer);
                 _layersNodes.Add(nextNodes.ToList());
                 return MakeLayer(nextNodes);
@@ -161,89 +171,138 @@ namespace TopolEvo.Architecture
             var sigmoid = new Sigmoid();
             var tanh = new Tanh();
 
-            var inputs = new Dictionary<int, NDArray>();
-            var valuesMatrices = new Dictionary<int, NDArray>();
+            //var inputs = new Dictionary<int, NDArray>();
+            //var valuesMatrices = new Dictionary<int, NDArray>();
+
+            //var Vectora = Vector<float>.Build.Dense(aArray);
+            //var matrixb = Matrix<float>.Build.DenseOfRowMajor(110000, 1024, bArray);
+
+            //var matrixc = matrixb * Vectora; // 27ms
+
+            var testMatrix = Matrix<double>.Build.Dense(input.shape[0], 4, 0);
+
+            var x = Vector<double>.Build.Dense(input[":,0"].ToArray<double>());
+            var y = Vector<double>.Build.Dense(input[":,1"].ToArray<double>());
+            var z = Vector<double>.Build.Dense(input[":,2"].ToArray<double>());
+            var bias = Vector<double>.Build.Dense(input.shape[0], 1.0);
+            var biasMatrix = Matrix<double>.Build.Dense(input.shape[0], 1);
+            biasMatrix.SetColumn(0, bias);
+
+            testMatrix.SetColumn(0, x);
+            testMatrix.SetColumn(1, y);
+            testMatrix.SetColumn(2, z);
+            testMatrix.SetColumn(3, bias);
+
 
             var firstMatrix = np.zeros(input.shape[0], 4);
-            firstMatrix[Slice.All, 0] = input[":,0"].Clone();
-            firstMatrix[Slice.All, 1] = input[":,1"].Clone();
-            firstMatrix[Slice.All, 2] = input[":,2"].Clone();
-            firstMatrix[Slice.All, 3] = np.ones(input.shape[0]);
-
-            var test = np.dot(firstMatrix,_layersMatrices[0]);
-            test = tanh.Apply(test);
-            test = np.concatenate((test, np.ones((input.shape[0], 1))),1 );
-
-            var output = np.dot(test, _layersMatrices[1]);
-            output = sigmoid.Apply(output);
-
-            //don't add the bias node twice
-            for (int i = 0; i < _genome.Nodes.Count - 1; i++)
-            {
-                inputs[i] = np.zeros(input.shape[0]);
-            }
-
-            //x coords
-            inputs[0] = input[":,0"].Clone();
-            //y coords
-            inputs[1] = input[":,1"].Clone();
-
-            if (input.shape[1] == 3 )
-            {
-                //z coords
-                inputs[2] = input[":,2"].Clone();
-            }
-
-            //bias
-            inputs[9999] = np.ones(inputs[0].shape);
-
-
+            firstMatrix[":, 0:3"] = input[":,0:3"].Clone();
+            firstMatrix[":, 3"] = np.ones(input.shape[0]);
+            //Stopwatch stopwatch = Stopwatch.StartNew();
             
-            //loop over each layer
-            for(int i = 0; i < _layers.Count; i++)
-            {
-                //apply the weights for each connection in layer
-                for (int j = 0; j < _layers[i].Count; j++)
-                {
-                    ConnectionGene connection = _layers[i][j];
-                    inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
-                }
+            var B = testMatrix * _layersMatrixs[0];
+            B.Map(Trig.Tanh, B);
+
+            var ary = new Matrix<double>[,] { { B, biasMatrix } };
+
+            var D = Matrix<double>.Build.DenseOfMatrixArray(ary);
 
 
-                //apply activation to each node and add bias
-                //foreach(int num in _layersNodes[i])
-               for (int j = 0; j < _layersNodes[i].Count; j++)
-                {
-                    int num = _layersNodes[i][j];
+            var C = D * _layersMatrixs[1];
+            C.Map(SpecialFunctions.Logistic, C);
 
-                    IActivation act;
+            //stopwatch.Stop();
 
-                    if (_genome.GetNodeByID(num)._activationType == "sigmoid")
-                    {
-                        act = sigmoid;
-                    }
-                    else
-                    {
-                        //act = new Tanh();
-                        act = tanh;
+            //var t1 = stopwatch.ElapsedTicks;
 
-                    }
-                    //seems to apply to the bias node too, do i need to stop that?
-                    inputs[num] = act.Apply(inputs[num]);
-                }
-            }
+            //stopwatch = Stopwatch.StartNew();
 
-            var output2 = np.expand_dims(inputs[_outputNode], 1);
+            //var test = np.dot(firstMatrix, _layersMatrices[0]);
+            //test = tanh.Apply(test);
+            //test = np.concatenate((test, np.ones((input.shape[0], 1))), 1);
+            //var output = np.dot(test, _layersMatrices[1]);
+            //output = sigmoid.Apply(output);
 
-            var diff = output2 - output;
+            //stopwatch.Stop();
+            //var t2 = stopwatch.ElapsedTicks;
+
+
+            var output = new NDArray(C.ToArray());
+
+     
+            var l = "";
+
+            ////don't add the bias node twice
+            //for (int i = 0; i < _genome.Nodes.Count - 1; i++)
+            //{
+            //    inputs[i] = np.zeros(input.shape[0]);
+            //}
+
+            ////x coords
+            //inputs[0] = input[":,0"].Clone();
+            ////y coords
+            //inputs[1] = input[":,1"].Clone();
+
+            //if (input.shape[1] == 3 )
+            //{
+            //    //z coords
+            //    inputs[2] = input[":,2"].Clone();
+            //}
+
+            ////bias
+            //inputs[9999] = np.ones(inputs[0].shape);
+
+
+
+            ////loop over each layer
+            //for(int i = 0; i < _layers.Count; i++)
+            //{
+            //    //apply the weights for each connection in layer
+            //    for (int j = 0; j < _layers[i].Count; j++)
+            //    {
+            //        ConnectionGene connection = _layers[i][j];
+            //        inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
+            //    }
+
+
+            //    //apply activation to each node and add bias
+            //    //foreach(int num in _layersNodes[i])
+            //   for (int j = 0; j < _layersNodes[i].Count; j++)
+            //    {
+            //        int num = _layersNodes[i][j];
+
+            //        IActivation act;
+
+            //        if (_genome.GetNodeByID(num)._activationType == "sigmoid")
+            //        {
+            //            act = sigmoid;
+            //        }
+            //        else
+            //        {
+            //            //act = new Tanh();
+            //            act = tanh;
+
+            //        }
+            //        //seems to apply to the bias node too, do i need to stop that?
+            //        inputs[num] = act.Apply(inputs[num]);
+            //    }
+            //}
+
+            //var output2 = np.expand_dims(inputs[_outputNode], 1);
+
+
+            //var diff = output2 - output;
             //what about more than one output?
             return output;
         }
+
+        //had to write my own parallel dot product because the one in numsharp is incredibly slow.
+        //https://github.com/SciSharp/NumSharp/issues/201
+        //It's even slower than manually looping over every node and connection!!
+
     }
 
 
-
-
+    
     //LAYERS
     public interface ILayer
     {
@@ -282,6 +341,7 @@ namespace TopolEvo.Architecture
         public NDArray Apply(NDArray input)
         {
             return 1.0 / (1.0 + np.exp(-1.0 * input));
+
         }
     }
 

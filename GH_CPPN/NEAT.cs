@@ -174,23 +174,22 @@ namespace TopolEvo.NEAT
 
             var Outputs = new Dictionary<int, NDArray>();
 
-
             //convert each genome into a network and evaluate it
             //fine in parallel as not interrelated
-            Parallel.For(0, Genomes.Count, (i) =>
-                {
-                    var net = new Network(Genomes[i]);
-                    var output = net.ForwardPass(coords);
-                    Outputs[Genomes[i].ID] = output;
-                }
-             );
-            
-                //for (int i = 0; i < Genomes.Count; i++)
-            //{
-            //    var net = new Network(Genomes[i]);
-            //    var output = net.ForwardPass(coords);
-            //    Outputs[Genomes[i].ID] = output;
-            //}
+            //Parallel.For(0, Genomes.Count, (i) =>
+            //    {
+            //        var net = new Network(Genomes[i]);
+            //        var output = net.ForwardPass(coords);
+            //        Outputs[Genomes[i].ID] = output;
+            //    }
+            // );
+
+            for (int i = 0; i < Genomes.Count; i++)
+            {
+                var net = new Network(Genomes[i]);
+                var output = net.ForwardPass(coords);
+                Outputs[Genomes[i].ID] = output;
+            }
 
             return Outputs;
 
