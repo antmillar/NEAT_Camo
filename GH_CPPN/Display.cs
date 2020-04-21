@@ -1,4 +1,5 @@
-﻿using NumSharp;
+﻿using MathNet.Numerics.LinearAlgebra;
+using NumSharp;
 using Rhino.Geometry;
 using System.Collections.Generic;
 using System.Drawing;
@@ -58,18 +59,21 @@ namespace TopolEvo.Display
 
             return combinedMesh;
         }
-
-
     }
 
     
     public class Volume
     {
 
-        //constructor
-        public Volume(int width, int xCenter = 0, int yCenter = 0, int zCenter = 0)
+        //properties
+        public List<Mesh> Meshes { get; set; } = new List<Mesh>();
+
+        
+        //methods
+        public Mesh Create(Matrix<double> output, int width, int xCenter = 0, int yCenter = 0, int zCenter = 0)
         {
-            System.Random rand = new System.Random();
+
+            int counter = 0;
 
             for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
             {
@@ -77,55 +81,39 @@ namespace TopolEvo.Display
                 {
                     for (int k = zCenter - width / 2; k < zCenter + width / 2; k++)
                     {
-                        var cube = new Mesh();
+                        double col = output[counter, 0];
 
-                        cube.Vertices.Add(i, j, k);
-                        cube.Vertices.Add(i + 1, j, k);
-                        cube.Vertices.Add(i, j + 1, k);
-                        cube.Vertices.Add(i + 1, j + 1, k);
+                        if (col > 0.5) {
+                            var cube = new Mesh();
 
-                        cube.Vertices.Add(i, j, k+1);
-                        cube.Vertices.Add(i + 1, j, k+1);
-                        cube.Vertices.Add(i, j + 1, k+1);
-                        cube.Vertices.Add(i + 1, j + 1, k+1);
+                            cube.Vertices.Add(i, j, k);
+                            cube.Vertices.Add(i + 1, j, k);
+                            cube.Vertices.Add(i, j + 1, k);
+                            cube.Vertices.Add(i + 1, j + 1, k);
 
-                        cube.Faces.AddFace(0, 1, 3, 2);
-                        cube.Faces.AddFace(1, 5, 7, 3);
-                        cube.Faces.AddFace(5, 4, 6, 7);
-                        cube.Faces.AddFace(4, 0, 2, 6);
-                        cube.Faces.AddFace(0, 1, 5, 4);
-                        cube.Faces.AddFace(2, 3, 7, 6);
+                            cube.Vertices.Add(i, j, k + 1);
+                            cube.Vertices.Add(i + 1, j, k + 1);
+                            cube.Vertices.Add(i, j + 1, k + 1);
+                            cube.Vertices.Add(i + 1, j + 1, k + 1);
 
-                        Meshes.Add(cube);
+                            cube.Faces.AddFace(0, 1, 3, 2);
+                            cube.Faces.AddFace(1, 5, 7, 3);
+                            cube.Faces.AddFace(5, 4, 6, 7);
+                            cube.Faces.AddFace(4, 0, 2, 6);
+                            cube.Faces.AddFace(0, 1, 5, 4);
+                            cube.Faces.AddFace(2, 3, 7, 6);
+
+                            Meshes.Add(cube);
+                        }
+
+                        counter++;
                     }
                 }
             }
-        }
-
-        //properties
-        public List<Mesh> Meshes { get; set; } = new List<Mesh>();
-
-        //methods
-        public Mesh Filter(NDArray output)
-        {
-
-            List<Mesh> keepMeshes = new List<Mesh>();
-
-            //paint the meshes
-            for (int i = 0; i < Meshes.Count; i++)
-
-            {
-                double col = output[i, 0];
-
-                if(col > 0.5)
-                    keepMeshes.Add(Meshes[i]);
-            }
-
-            
-
+          
             //combine the meshes
             Mesh combinedMesh = new Mesh();
-            combinedMesh.Append(keepMeshes);
+            combinedMesh.Append(Meshes);
 
             return combinedMesh;
         }

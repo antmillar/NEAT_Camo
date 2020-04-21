@@ -13,7 +13,7 @@ namespace TopolEvo.Architecture
 
     public interface Model
     {
-        NDArray ForwardPass(NDArray input);
+        Matrix<double> ForwardPass(Matrix<double> input);
     }
 
     public class Network : Model
@@ -126,13 +126,12 @@ namespace TopolEvo.Architecture
             else
             {
 
-                //create an NDArray to represent the layer of connections
+                //create a Matrix to represent the layer of connections
                 //each column represents an output node
                 //each node can have a variable number of inputs, so matrix will be sparse
                 //for the height of columns will use the number of nodes in previous layer, lazy upper bound
 
-                NDArray layerMatrix = np.zeros((currentNodes.Count, nextNodes.Count));
-                var testMatrix = Matrix<double>.Build.Dense(currentNodes.Count, nextNodes.Count, 0);
+                var layerMatrix = Matrix<double>.Build.Dense(currentNodes.Count, nextNodes.Count, 0);
 
                 var nextNodeList = nextNodes.ToList();
                 var nodeCountList = new int[nextNodeList.Count];
@@ -140,11 +139,11 @@ namespace TopolEvo.Architecture
                 foreach (var connection in currentLayer)
                 {
                     var index = nextNodeList.IndexOf(connection._outputNode);
-                    testMatrix[nodeCountList[index], index] = connection.Weight;
+                    layerMatrix[nodeCountList[index], index] = connection.Weight;
                     nodeCountList[index]++;
                 }
 
-                _layersMatrices.Add(testMatrix);
+                _layersMatrices.Add(layerMatrix);
                 _layers.Add(currentLayer);
                 _layersNodes.Add(nextNodes.ToList());
                 return MakeLayer(nextNodes);
@@ -157,55 +156,77 @@ namespace TopolEvo.Architecture
         /// </summary>
         /// <param name="input">Set of coordinates</param>
         /// <returns></returns>
-        public NDArray ForwardPass(NDArray input)
+        public Matrix<double> ForwardPass(Matrix<double> input)
         {
-            if (_inputCount != input.shape[1]) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.shape[1]}");
+            if (_inputCount != input.ColumnCount) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.ColumnCount}");
 
-            var testMatrix = Matrix<double>.Build.Dense(input.shape[0], 4, 0);
+            var V = Vector<double>.Build;
+            var M = Matrix<double>.Build;
 
-            var x = Vector<double>.Build.Dense(input[":,0"].ToArray<double>());
-            var y = Vector<double>.Build.Dense(input[":,1"].ToArray<double>());
-            var z = Vector<double>.Build.Dense(input[":,2"].ToArray<double>());
-            var bias = Vector<double>.Build.Dense(input.shape[0], 1.0);
-            var biasMatrix = Matrix<double>.Build.Dense(input.shape[0], 1);
+            //set up the input layer
 
+            var inputs = M.Dense(input.RowCount, 3, 0);
+
+            var x = input.Column(0);
+            var y = input.Column(1);
+            var z = input.Column(2);
+
+            var bias =V.Dense(input.RowCount, 1.0);
+            var biasMatrix = M.Dense(input.RowCount, 1);
             biasMatrix.SetColumn(0, bias);
 
-            testMatrix.SetColumn(0, x);
-            testMatrix.SetColumn(1, y);
-            testMatrix.SetColumn(2, z);
-            testMatrix.SetColumn(3, bias);
+            inputs.SetColumn(0, x);
+            inputs.SetColumn(1, y);
+            inputs.SetColumn(2, z);
 
-            var B = testMatrix * _layersMatrices[0];
-            B.Map(Trig.Tanh, B);
+            //inputs.SetColumn(3, bias);
 
-            var ary = new Matrix<double>[,] { { B, biasMatrix } };
-
-            var D = Matrix<double>.Build.DenseOfMatrixArray(ary);
+            var output = CalculateLayer(0, inputs);
 
 
-            var C = D * _layersMatrices[1];
-            C.Map(SpecialFunctions.Logistic, C);
+            //var inputsWithBias = new Matrix<double>[,] { { inputs, biasMatrix } };
+            //var inputs1 = M.DenseOfMatrixArray(inputsWithBias);
+
+            ////forward propagation
+
+            //var outputs1 = inputs1 * _layersMatrices[0]; //w*x + b
+
+            ////apply activation function to each column
+            //for(int i = 0; i < outputs1.ColumnCount; i++)
+            //{
+            //    var nodenum = _layersNodes[0][i];
+            //    var act = _genome.GetNodeByID(nodenum)._activationType;
+
+            //    var temp = outputs1.Column(i);
+            //    outputs1.Column(i).Map(act, temp, Zeros.Include);
+            //    outputs1.SetColumn(i, temp);
+            //}
 
 
-            //var t1 = stopwatch.ElapsedTicks;
+            ////outputs1.Map(Trig.Tanh, outputs1); //activation
 
-            //stopwatch = Stopwatch.StartNew();
+            //var outputs1WithBias = new Matrix<double>[,] { { outputs1, biasMatrix } };
+            //var z1 = M.DenseOfMatrixArray(outputs1WithBias);
 
-            //var test = np.dot(firstMatrix, _layersMatrices[0]);
-            //test = tanh.Apply(test);
-            //test = np.concatenate((test, np.ones((input.shape[0], 1))), 1);
-            //var output = np.dot(test, _layersMatrices[1]);
-            //output = sigmoid.Apply(output);
+            //var outputs2 = z1 * _layersMatrices[1]; //w*x + b
 
-            //stopwatch.Stop();
-            //var t2 = stopwatch.ElapsedTicks;
+            ////apply activation function to each column
+            //for (int i = 0; i < outputs2.ColumnCount; i++)
+            //{
+            //    var nodenum = _layersNodes[1][i];
+            //    var act = _genome.GetNodeByID(nodenum)._activationType;
 
+            //    var temp = outputs2.Column(i);
+            //    outputs2.Column(i).Map(act, temp, Zeros.Include);
+            //    outputs2.SetColumn(i, temp);
+            //}
 
-            var output = new NDArray(C.ToArray());
+            //outputs2.Map(SpecialFunctions.Logistic, outputs2); // activation
 
+            return output;
 
-            var l = "";
+            #region code without matrices
+            
 
             ////don't add the bias node twice
             //for (int i = 0; i < _genome.Nodes.Count - 1; i++)
@@ -268,7 +289,50 @@ namespace TopolEvo.Architecture
 
             //var diff = output2 - output;
             //what about more than one output?
-            return output;
+
+            #endregion
+
+        }
+
+        private Matrix<double> CalculateLayer(int layerIndex, Matrix<double> inputs)
+        {
+            var V = Vector<double>.Build;
+            var M = Matrix<double>.Build;
+
+            //create matrix for bias column
+            var bias = V.Dense(inputs.RowCount, 1.0);
+            var biasMatrix = M.Dense(inputs.RowCount, 1);
+            biasMatrix.SetColumn(0, bias);
+
+            //append to inputs
+            var concat = new Matrix<double>[,] { { inputs, biasMatrix } };
+            var inputsWithBias = M.DenseOfMatrixArray(concat);
+
+            //forward propagation
+
+            var outputs = inputsWithBias * _layersMatrices[layerIndex]; //w*x + b
+
+            //apply activation function to each column
+            for (int i = 0; i < outputs.ColumnCount; i++)
+            {
+                var nodenum = _layersNodes[layerIndex][i];
+                var act = _genome.GetNodeByID(nodenum)._activationType;
+
+                var temp = outputs.Column(i);
+                outputs.Column(i).Map(act, temp, Zeros.Include);
+                outputs.SetColumn(i, temp);
+            }
+
+            //when get to last layer, stop iterating
+            if(layerIndex + 1 < _layersMatrices.Count)
+            {
+                return CalculateLayer(layerIndex + 1, outputs);
+            }
+            else
+            {
+                return outputs;
+            }
+
         }
 
         //had to write my own parallel dot product because the one in numsharp is incredibly slow.
@@ -310,6 +374,20 @@ namespace TopolEvo.Architecture
     public interface IActivation
     {
         NDArray Apply (NDArray input);
+    }
+
+    public static class Activation
+    {
+        public static Func<double, double> Sigmoid()
+        {
+            return SpecialFunctions.Logistic;
+        }
+
+        public static Func<double, double> Tanh()
+        {
+            return Trig.Tanh;
+        }
+
     }
 
     public class Sigmoid : IActivation

@@ -1,4 +1,5 @@
 ﻿using Grasshopper.Kernel;
+using MathNet.Numerics.LinearAlgebra;
 using NumSharp;
 using Rhino.Geometry;
 using System;
@@ -24,8 +25,8 @@ namespace GH_CPPN
         private List<Mesh> meshes = new List<Mesh>();
         private Population pop;
         private List<double> fits;
-        private NDArray coords;
-        private Dictionary<int, NDArray> outputs;
+        private Matrix<double> coords;
+        private Dictionary<int, Matrix<double>> outputs;
 
 
         public override Guid ComponentGuid
@@ -79,11 +80,12 @@ namespace GH_CPPN
 
                 pop = new Population(popSize);
 
-                coords = np.ones((width * width * width, 3));
+                //coords = np.ones((width * width * width, 3));
+                coords = Matrix<double>.Build.Dense(width * width * width, 3);
 
                 coords = PopulateCoords(width, 3);
 
-                outputs = new Dictionary<int, NDArray>();
+                outputs = new Dictionary<int, Matrix<double>>();
 
                 outputs = pop.Evaluate(coords);
                 fits = Fitness.Function(pop, outputs, coords);
@@ -127,7 +129,7 @@ namespace GH_CPPN
             return meshes;
         }
         
-        private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, NDArray> outputs, int width, int popSize)
+        private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, Matrix<double>> outputs, int width, int popSize)
         {
             meshes.Clear();
             //draw a grid of results
@@ -141,8 +143,8 @@ namespace GH_CPPN
                 {
                     if(count < popSize)
                     {
-                        var volume = new Volume(width, -gridSide / 2 * (width + 3) + i * (width + 3), -gridSide / 2 * (width + 3) + j * (width + 3));
-                        Mesh combinedMesh = volume.Filter(outputs[pop.Genomes[i * gridSide + j].ID]);
+                        var volume = new Volume();
+                        Mesh combinedMesh = volume.Create(outputs[pop.Genomes[i * gridSide + j].ID], width, -gridSide / 2 * (width + 3) + i * (width + 3), -gridSide / 2 * (width + 3) + j * (width + 3));
                         meshes.Add(combinedMesh);
                     }
 
@@ -163,7 +165,7 @@ namespace GH_CPPN
             return meshes;
         }
 
-        private NDArray PopulateCoords(int width, int dims)
+        private Matrix<double> PopulateCoords(int width, int dims)
         {
             //populate coords
 

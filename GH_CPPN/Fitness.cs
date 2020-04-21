@@ -1,4 +1,6 @@
-﻿using NumSharp;
+﻿using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
+using NumSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,24 +15,24 @@ namespace TopolEvo.Fitness
         /// <summary> 
         /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
-        public static List<double> Function(Population pop, Dictionary<int, NDArray> outputs, NDArray coords)
+        public static List<double> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords)
         {
             //create a target grid
-            var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].Shape, coords);
+            
+
+            var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
 
             var fitnesses = new List<double>();
     
-            foreach (KeyValuePair<int, NDArray> entry in outputs)
+            foreach (KeyValuePair<int, Matrix<double> > entry in outputs)
             {
-                
-                //L1 norm
-                //var fitness = np.sum(np.abs(entry.Value - targetOutput));
-                
-                //L2 norm
-                
-                var fitness = np.sqrt( np.mean(np.power(entry.Value - targetOutput, 2)));
 
+                //L1 Norm
+                //var fitness = (entry.Value - targetOutput).PointwiseAbs().ToRowMajorArray().Sum();
 
+                //L2 Norm
+                var fitness = Math.Sqrt((entry.Value - targetOutput).PointwisePower(2).ToRowMajorArray().Sum());
+                
                 fitnesses.Add(fitness);
                 pop.GetGenomeByID(entry.Key).Fitness = fitness;
             }
@@ -41,27 +43,29 @@ namespace TopolEvo.Fitness
             //have a config setting for min max fitnesses
         }
 
-        public static NDArray CreateTarget(Shape shape, NDArray coords)
+        public static Matrix<double> CreateTarget(int rows, int cols, Matrix<double> coords)
         {
-            NDArray values = np.zeros(shape);
+  
+            var targets = Matrix<double>.Build.Dense(rows, cols, 0.0);
 
-            for (int i = 0; i < values.Shape[0]; i++)
+            for (int i = 0; i < targets.RowCount; i++)
             {
                 ////equation of circle
-                if (Math.Pow(coords[i, 0].GetDouble(), 2) + Math.Pow(coords[i, 1].GetDouble(), 2) + Math.Pow(coords[i, 2].GetDouble(), 2)  < 0.2)
+                if (Math.Pow(coords[i, 0], 2) + Math.Pow(coords[i, 1], 2) + Math.Pow(coords[i, 2], 2)  < 0.2)
                 {
-                    values[i] = 1.0;
+                    //values[i] = 1.0;
+                    targets[i, 0] = 1.0;
                 }
 
                 //vert bar
-                //if (coords[i, 0].GetDouble() < -0.25 || coords[i, 0].GetDouble() > 0.25)
+                //if (coords[i, 0] < -0.25 || coords[i, 0] > 0.25)
                 //{
                 //    values[i] = 1.0;
                 //}
 
 
                 //vert partition
-                //if (coords[i, 0].GetDouble() < 0.0)
+                //if (coords[i, 0] < 0.0)
                 //{
                 //    values[i] = 1.0;
                 //}
@@ -72,9 +76,7 @@ namespace TopolEvo.Fitness
 
             }
 
-
-
-            return values;
+            return targets;
         }
     }
 }

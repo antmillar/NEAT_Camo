@@ -1,4 +1,5 @@
 ﻿
+using MathNet.Numerics.LinearAlgebra;
 using NumSharp;
 using System;
 using System.Collections.Generic;
@@ -170,10 +171,10 @@ namespace TopolEvo.NEAT
         }
 
         //evaluates the current set of genomes
-        public Dictionary<int, NDArray> Evaluate(NDArray coords)
+        public Dictionary<int, Matrix<double>> Evaluate(Matrix<double> coords)
         {
 
-            var Outputs = new Dictionary<int, NDArray>();
+            var Outputs = new Dictionary<int, Matrix<double>>();
 
             //convert each genome into a network and evaluate it
             //fine in parallel as not interrelated
@@ -196,7 +197,6 @@ namespace TopolEvo.NEAT
                 Outputs[Genomes[i].ID] = output;
             }
 
-            ProcessThreadCollection currentThreads = Process.GetCurrentProcess().Threads;
             return Outputs;
 
         }
@@ -233,19 +233,25 @@ namespace TopolEvo.NEAT
 
     public class NodeGene : Gene
     {
-        protected internal string _activationType;
+        protected internal Func<double, double> _activationType;
         protected internal int _id;
         protected internal string _type;
         protected internal List<int> _inputs;
-
 
         public NodeGene(int id, string type, string activationType = "tanh")
         {
             _id = id;
             _type = type;
             _inputs = new List<int>();
-            _activationType = activationType;
-   
+
+            if (activationType == "tanh")
+            {
+                _activationType = Activation.Tanh();
+            }
+            else if (activationType == "sigmoid")
+            {
+                _activationType = Activation.Sigmoid();
+            }  
         }
 
         //copy constructor
