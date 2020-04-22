@@ -72,29 +72,31 @@ namespace TopolEvo.Display
         //methods
         public Mesh Create(Matrix<double> output, int width, int xCenter = 0, int yCenter = 0, int zCenter = 0)
         {
-
+            int cellCount = width / 1;
+            double size = 10 / cellCount;
             int counter = 0;
 
-            for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
+            for (int i = 0; i < cellCount; i++)
             {
-                for (int j = yCenter - width / 2; j < yCenter + width / 2; j++)
+                for (int j = 0; j < cellCount; j++)
                 {
-                    for (int k = zCenter - width / 2; k < zCenter + width / 2; k++)
+                    for (int k = 0; k < cellCount; k++)
                     {
                         double col = output[counter, 0];
 
                         if (col > 0.5) {
                             var cube = new Mesh();
 
-                            cube.Vertices.Add(i, j, k);
-                            cube.Vertices.Add(i + 1, j, k);
-                            cube.Vertices.Add(i, j + 1, k);
-                            cube.Vertices.Add(i + 1, j + 1, k);
+                            cube.Vertices.Add(i * size, j * size, k * size);
+                            cube.Vertices.Add((i + 1) * size, j * size, k * size);
+                            cube.Vertices.Add(i * size, (j + 1) * size, k * size);
+                            cube.Vertices.Add((i + 1) * size, (j + 1) * size, k * size);
 
-                            cube.Vertices.Add(i, j, k + 1);
-                            cube.Vertices.Add(i + 1, j, k + 1);
-                            cube.Vertices.Add(i, j + 1, k + 1);
-                            cube.Vertices.Add(i + 1, j + 1, k + 1);
+
+                            cube.Vertices.Add(i * size, j * size, (k + 1) * size);
+                            cube.Vertices.Add((i + 1) * size, j * size, (k + 1) * size);
+                            cube.Vertices.Add(i * size, (j + 1) * size, (k + 1) * size);
+                            cube.Vertices.Add((i + 1) * size, (j + 1) * size, (k + 1) * size);
 
                             cube.Faces.AddFace(0, 1, 3, 2);
                             cube.Faces.AddFace(1, 5, 7, 3);
@@ -102,6 +104,8 @@ namespace TopolEvo.Display
                             cube.Faces.AddFace(4, 0, 2, 6);
                             cube.Faces.AddFace(0, 1, 5, 4);
                             cube.Faces.AddFace(2, 3, 7, 6);
+
+                            cube.Translate(new Vector3d(xCenter, yCenter, zCenter));
 
                             Meshes.Add(cube);
                         }

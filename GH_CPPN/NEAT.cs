@@ -344,7 +344,7 @@ namespace TopolEvo.NEAT
             //add hidden nodes and ongoing connections and biases
             for (int i = 0; i < hiddenNodes; i++)
             {
-                Nodes.Add(new NodeGene(nodeCount, "hidden"));
+                Nodes.Add(new NodeGene(nodeCount, "hidden", "tanh"));
                 Connections.Add(new ConnectionGene(9999, nodeCount));
                 //add connection to each node in the next layer
                 for (int j = inputNodes + hiddenNodes; j < inputNodes + hiddenNodes + outputNodes; j++)

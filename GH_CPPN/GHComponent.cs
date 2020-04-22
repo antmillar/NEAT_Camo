@@ -27,6 +27,11 @@ namespace GH_CPPN
         private List<double> fits;
         private Matrix<double> coords;
         private Dictionary<int, Matrix<double>> outputs;
+        private Mesh targetMesh;
+        private Mesh inputMesh;
+        private int width = 10;
+        private int popSize = 50;
+        private Matrix<double> occupancy;
 
 
         public override Guid ComponentGuid
@@ -40,7 +45,16 @@ namespace GH_CPPN
             //pManager.AddTextParameter("input text", "i", "string to reverse", GH_ParamAccess.item);
             pManager.AddBooleanParameter("toggle generation", "toggle", "run the next generation", GH_ParamAccess.item);
             pManager.AddNumberParameter("survival cutoff", "survival cutoff", "survival cutoff", GH_ParamAccess.item);
+            pManager.AddMeshParameter("input mesh", "inputMesh mesh", "inputMesh mesh", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("width", "width", "width", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("popSize", "popSize", "popSize", GH_ParamAccess.item);
 
+
+            //pManager[0].Optional = true;
+            pManager[1].Optional = true;
+            //pManager[2].Optional = true;
+            pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -49,19 +63,31 @@ namespace GH_CPPN
             pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.list);
             pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
             pManager.AddNumberParameter("mean fitness", "mean fitness", "means of fitnesses", GH_ParamAccess.item);
+            pManager.AddMeshParameter("target mesh", "target", "target meshes", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-
+            //defaults
             bool button = false;
             double cutoff = 0.5;
+            inputMesh = new Mesh();
+            //init = false;
 
-            if (!DA.GetData(0, ref button)) { return; }
-            if (!DA.GetData(1, ref cutoff)) { return; }
+            //if (!DA.GetData(0, ref button)) { return; }
+            //if (!DA.GetData(1, ref cutoff)) { return; }
 
-            if (button == null) { return; }
-            if (cutoff == null) { return; }
+
+            DA.GetData(0, ref button);
+            DA.GetData(1, ref cutoff);
+            if (!DA.GetData(2, ref inputMesh)) { return; }
+            DA.GetData(3, ref width);
+            DA.GetData(4, ref popSize);
+
+            //if (button == null) { return; }
+            //if (cutoff == null) { return; }
+            //if (inputMesh == null) { return; }
+
 
 
             //var linear = new temp.CustomModel();
@@ -69,8 +95,24 @@ namespace GH_CPPN
 
             //var mlp = new temp.MLP(2, 1, 8);
             //NDArray activations = mlp.ForwardPass(coords);
-            int width = 10;
-            int popSize = 50;
+            //int width = 10;
+            //int popSize = 50;
+
+            //coords = np.ones((width * width * width, 3));
+            coords = Matrix<double>.Build.Dense(width * width * width, 3);
+
+            coords = PopulateCoords(width, 3);
+
+
+
+            var bbox = inputMesh.GetBoundingBox(true);
+            var box = new Box(bbox);
+
+            var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
+            inputMesh.Translate(new Vector3d(-box.Center));
+            inputMesh.Scale(1.0 / longestDim);
+            occupancy = Fitness.CreateOccupancy(width * width * width, 1, coords, inputMesh);
+
 
             if (!init)
             {
@@ -80,19 +122,20 @@ namespace GH_CPPN
 
                 pop = new Population(popSize);
 
-                //coords = np.ones((width * width * width, 3));
-                coords = Matrix<double>.Build.Dense(width * width * width, 3);
-
-                coords = PopulateCoords(width, 3);
 
                 outputs = new Dictionary<int, Matrix<double>>();
 
                 outputs = pop.Evaluate(coords);
-                fits = Fitness.Function(pop, outputs, coords);
+
+                //var target = Fitness.CreateTarget(width * width * width, 1, coords);
+                fits = Fitness.Function(pop, outputs, coords, occupancy);
                 pop.SortByFitness();
 
+   
 
+                targetMesh = GenerateTargetMesh(occupancy, width);
                 meshes = GenerateMeshes(pop, outputs, width, popSize);
+
             }
 
             //paint mesh using outputs
@@ -107,7 +150,9 @@ namespace GH_CPPN
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
             DA.SetData(2, fits.Average());
+            DA.SetData(3, targetMesh);
         }
+
 
 
         private List<Mesh> Run(int generations, int width, int popSize)
@@ -117,7 +162,7 @@ namespace GH_CPPN
                 pop.NextGeneration();
 
                 outputs = pop.Evaluate(coords);
-                fits = Fitness.Function(pop, outputs, coords);
+                fits = Fitness.Function(pop, outputs, coords, occupancy);
 
                 pop.SortByFitness();
 
@@ -128,7 +173,15 @@ namespace GH_CPPN
 
             return meshes;
         }
-        
+
+        private Mesh GenerateTargetMesh(Matrix<double> target, int width)
+        {
+            var volume = new Volume();
+            Mesh mesh = volume.Create(target, width, -60, -60);
+
+            return mesh;
+        }
+
         private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, Matrix<double>> outputs, int width, int popSize)
         {
             meshes.Clear();

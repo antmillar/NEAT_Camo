@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using NumSharp;
+using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,12 +16,13 @@ namespace TopolEvo.Fitness
         /// <summary> 
         /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
-        public static List<double> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords)
+        public static List<double> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> temp)
         {
             //create a target grid
-            
 
-            var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
+
+            //var targetOutput = CreateTarget(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
+            var targetOutput = temp;
 
             var fitnesses = new List<double>();
     
@@ -77,6 +79,26 @@ namespace TopolEvo.Fitness
             }
 
             return targets;
+        }
+
+        //find points in voxel grid contained inside the target mesh
+        public static Matrix<double> CreateOccupancy(int rows, int cols, Matrix<double> coords, Mesh inputMesh)
+        {
+
+            var occupancy = Matrix<double>.Build.Dense(rows, cols, 0.0);
+
+            for (int i = 0; i < occupancy.RowCount; i++)
+            {
+                ////equation of circle
+                var pt = new Point3d(coords[i, 0], coords[i, 1], coords[i, 2]);
+
+                if (inputMesh.IsPointInside(pt, 1.0, false))
+                {
+                    occupancy[i, 0] = 1.0;
+                }
+
+            }
+            return occupancy;
         }
     }
 }
