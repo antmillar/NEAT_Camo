@@ -29,7 +29,7 @@ namespace GH_CPPN
         private Dictionary<int, Matrix<double>> outputs;
         private Mesh targetMesh;
         private Mesh inputMesh;
-        private int width = 10;
+        private int subdivisions = 10;
         private int popSize = 50;
         private Matrix<double> occupancy;
 
@@ -46,7 +46,7 @@ namespace GH_CPPN
             pManager.AddBooleanParameter("toggle generation", "toggle", "run the next generation", GH_ParamAccess.item);
             pManager.AddNumberParameter("survival cutoff", "survival cutoff", "survival cutoff", GH_ParamAccess.item);
             pManager.AddMeshParameter("input mesh", "inputMesh mesh", "inputMesh mesh", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("width", "width", "width", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("subdivisions", "subdivisions", "subdivisions", GH_ParamAccess.item);
             pManager.AddIntegerParameter("popSize", "popSize", "popSize", GH_ParamAccess.item);
 
 
@@ -81,7 +81,7 @@ namespace GH_CPPN
             DA.GetData(0, ref button);
             DA.GetData(1, ref cutoff);
             if (!DA.GetData(2, ref inputMesh)) { return; }
-            DA.GetData(3, ref width);
+            DA.GetData(3, ref subdivisions);
             DA.GetData(4, ref popSize);
 
             //if (button == null) { return; }
@@ -99,9 +99,9 @@ namespace GH_CPPN
             //int popSize = 50;
 
             //coords = np.ones((width * width * width, 3));
-            coords = Matrix<double>.Build.Dense(width * width * width, 3);
+            coords = Matrix<double>.Build.Dense(subdivisions * subdivisions * subdivisions, 3);
 
-            coords = PopulateCoords(width, 3);
+            coords = PopulateCoords(subdivisions, 3);
 
 
 
@@ -111,7 +111,7 @@ namespace GH_CPPN
             var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
             inputMesh.Translate(new Vector3d(-box.Center));
             inputMesh.Scale(1.0 / longestDim);
-            occupancy = Fitness.CreateOccupancy(width * width * width, 1, coords, inputMesh);
+            occupancy = Fitness.CreateOccupancy(subdivisions * subdivisions * subdivisions, 1, coords, inputMesh);
 
 
             if (!init)
@@ -131,10 +131,10 @@ namespace GH_CPPN
                 fits = Fitness.Function(pop, outputs, coords, occupancy);
                 pop.SortByFitness();
 
-   
 
-                targetMesh = GenerateTargetMesh(occupancy, width);
-                meshes = GenerateMeshes(pop, outputs, width, popSize);
+
+                targetMesh = GenerateTargetMesh(occupancy, subdivisions);
+                meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
 
             }
 
@@ -143,7 +143,7 @@ namespace GH_CPPN
             if (button)
             {
                 Config.survivalCutoff = cutoff;
-                Run(10, width, popSize);
+                Run(10, subdivisions, popSize);
             }
 
             //output data from GH component
@@ -155,7 +155,7 @@ namespace GH_CPPN
 
 
 
-        private List<Mesh> Run(int generations, int width, int popSize)
+        private List<Mesh> Run(int generations, int subdivisions, int popSize)
         {
             for (int i = 0; i < generations; i++)
             {
@@ -168,36 +168,39 @@ namespace GH_CPPN
 
             }
 
-
-            meshes = GenerateMeshes(pop, outputs, width, popSize);
+            targetMesh = GenerateTargetMesh(occupancy, subdivisions);
+            meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
 
             return meshes;
         }
 
-        private Mesh GenerateTargetMesh(Matrix<double> target, int width)
+        private Mesh GenerateTargetMesh(Matrix<double> target, int subdivisions)
         {
             var volume = new Volume();
-            Mesh mesh = volume.Create(target, width, -60, -60);
+            Mesh mesh = volume.Create(target, subdivisions, -30, 0, 0);
 
             return mesh;
         }
 
-        private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, Matrix<double>> outputs, int width, int popSize)
+        private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, Matrix<double>> outputs, int subdivisions, int popSize)
         {
             meshes.Clear();
+
             //draw a grid of results
-            var gridSide = (int) Math.Ceiling(Math.Sqrt(popSize));
+            int gridWidth = Math.Min(10, popSize);
+            int gridDepth = popSize / gridWidth + 1;
+            int padding = 10;
 
             var count = 0;
 
-            for (int i = 0; i < gridSide; i++)
+            for (int i = 0; i < gridDepth; i++)
             {
-                for (int j = 0; j < gridSide; j++)
+                for (int j = 0; j < gridWidth; j++)
                 {
                     if(count < popSize)
                     {
                         var volume = new Volume();
-                        Mesh combinedMesh = volume.Create(outputs[pop.Genomes[i * gridSide + j].ID], width, -gridSide / 2 * (width + 3) + i * (width + 3), -gridSide / 2 * (width + 3) + j * (width + 3));
+                        Mesh combinedMesh = volume.Create(outputs[pop.Genomes[count].ID], subdivisions, j * (10 + padding),  i * (10 + padding));
                         meshes.Add(combinedMesh);
                     }
 
@@ -218,11 +221,11 @@ namespace GH_CPPN
             return meshes;
         }
 
-        private Matrix<double> PopulateCoords(int width, int dims)
+        private Matrix<double> PopulateCoords(int subdivisions, int dims)
         {
             //populate coords
 
-            var shift = width / 2;
+            var shift = subdivisions / 2;
 
             if (dims == 2)
             {
@@ -231,8 +234,8 @@ namespace GH_CPPN
                     for (int j = -shift; j < shift; j++)
                     {
                         //coords are in range [-0.5, 0.5]
-                        coords[(i + shift) * width + j + shift, 0] = 1.0 * i / width;
-                        coords[(i + shift) * width + j + shift, 1] = 1.0 * j / width;
+                        coords[(i + shift) * subdivisions + j + shift, 0] = 1.0 * i / subdivisions;
+                        coords[(i + shift) * subdivisions + j + shift, 1] = 1.0 * j / subdivisions;
                     }
                 }
             }
@@ -246,9 +249,9 @@ namespace GH_CPPN
                         for (int k = -shift; k < shift; k++)
                         {
                             //coords are in range [-0.5, 0.5]
-                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 0] = 1.0 * i / width;
-                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 1] = 1.0 * j / width;
-                            coords[(i + shift) * width*width + (j + shift) * width + k + shift, 2] = 1.0 * k / width;
+                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 0] = 1.0 * i / subdivisions;
+                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 1] = 1.0 * j / subdivisions;
+                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 2] = 1.0 * k / subdivisions;
                         }
                     }
                 }

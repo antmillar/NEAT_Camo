@@ -12,13 +12,13 @@ namespace TopolEvo.Display
     {
 
         //constructor
-        public Drawing(int width, int xCenter = 0, int yCenter = 0)
+        public Drawing(int subdivisions, int xCenter = 0, int yCenter = 0)
         {
             System.Random rand = new System.Random();
 
-            for (int i = xCenter - width / 2; i < xCenter + width / 2; i++)
+            for (int i = xCenter - subdivisions / 2; i < xCenter + subdivisions / 2; i++)
             {
-                for (int j = yCenter - width / 2; j < yCenter + width / 2; j++)
+                for (int j = yCenter - subdivisions / 2; j < yCenter + subdivisions / 2; j++)
                 {
                     var cell = new Mesh();
 
@@ -70,17 +70,17 @@ namespace TopolEvo.Display
 
         
         //methods
-        public Mesh Create(Matrix<double> output, int width, int xCenter = 0, int yCenter = 0, int zCenter = 0)
+        public Mesh Create(Matrix<double> output, int subdivisions, int xCenter = 0, int yCenter = 0, int zCenter = 0)
         {
-            int cellCount = width / 1;
-            double size = 10 / cellCount;
+
+            double size = 10.0 / subdivisions;
             int counter = 0;
 
-            for (int i = 0; i < cellCount; i++)
+            for (int i = 0; i < subdivisions; i++)
             {
-                for (int j = 0; j < cellCount; j++)
+                for (int j = 0; j < subdivisions; j++)
                 {
-                    for (int k = 0; k < cellCount; k++)
+                    for (int k = 0; k < subdivisions; k++)
                     {
                         double col = output[counter, 0];
 
