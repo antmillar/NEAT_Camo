@@ -312,16 +312,28 @@ namespace TopolEvo.Architecture
 
             var outputs = inputsWithBias * _layersMatrices[layerIndex]; //w*x + b
 
-            //apply activation function to each column
-            for (int i = 0; i < outputs.ColumnCount; i++)
-            {
-                var nodenum = _layersNodes[layerIndex][i];
-                var act = _genome.GetNodeByID(nodenum)._activationType;
 
-                var temp = outputs.Column(i);
-                outputs.Column(i).Map(act, temp, Zeros.Include);
-                outputs.SetColumn(i, temp);
-            }
+            //apply activation functions
+            Parallel.For(0, outputs.ColumnCount, (i) =>
+             {
+                 var nodenum = _layersNodes[layerIndex][i];
+                 var act = _genome.GetNodeByID(nodenum)._activationType;
+
+                 var temp = outputs.Column(i);
+                 outputs.Column(i).Map(act, temp, Zeros.Include);
+                 outputs.SetColumn(i, temp);
+             });
+
+            //apply activation function to each column non parallel
+            //for (int i = 0; i < outputs.ColumnCount; i++)
+            //{
+            //    var nodenum = _layersNodes[layerIndex][i];
+            //    var act = _genome.GetNodeByID(nodenum)._activationType;
+
+            //    var temp = outputs.Column(i);
+            //    outputs.Column(i).Map(act, temp, Zeros.Include);
+            //    outputs.SetColumn(i, temp);
+            //}
 
             //when get to last layer, stop iterating
             if(layerIndex + 1 < _layersMatrices.Count)

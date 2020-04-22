@@ -88,22 +88,8 @@ namespace GH_CPPN
             //if (cutoff == null) { return; }
             //if (inputMesh == null) { return; }
 
-
-
-            //var linear = new temp.CustomModel();
-            //NDArray activations = linear.ForwardPass(coords);
-
-            //var mlp = new temp.MLP(2, 1, 8);
-            //NDArray activations = mlp.ForwardPass(coords);
-            //int width = 10;
-            //int popSize = 50;
-
-            //coords = np.ones((width * width * width, 3));
             coords = Matrix<double>.Build.Dense(subdivisions * subdivisions * subdivisions, 3);
-
             coords = PopulateCoords(subdivisions, 3);
-
-
 
             var bbox = inputMesh.GetBoundingBox(true);
             var box = new Box(bbox);
@@ -111,8 +97,12 @@ namespace GH_CPPN
             var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
             inputMesh.Translate(new Vector3d(-box.Center));
             inputMesh.Scale(1.0 / longestDim);
-            occupancy = Fitness.CreateOccupancy(subdivisions * subdivisions * subdivisions, 1, coords, inputMesh);
 
+
+            occupancy = Fitness.CreateOccupancy(subdivisions * subdivisions * subdivisions, 1, coords, inputMesh);
+            var occCount = occupancy.ColumnSums().Sum();
+
+            if(occCount == 0)  AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
 
             if (!init)
             {
@@ -190,6 +180,7 @@ namespace GH_CPPN
             int gridWidth = Math.Min(10, popSize);
             int gridDepth = popSize / gridWidth + 1;
             int padding = 10;
+            int maxDisplay = Math.Min(10, popSize);
 
             var count = 0;
 
@@ -197,7 +188,7 @@ namespace GH_CPPN
             {
                 for (int j = 0; j < gridWidth; j++)
                 {
-                    if(count < popSize)
+                    if(count < maxDisplay)
                     {
                         var volume = new Volume();
                         Mesh combinedMesh = volume.Create(outputs[pop.Genomes[count].ID], subdivisions, j * (10 + padding),  i * (10 + padding));
@@ -208,6 +199,7 @@ namespace GH_CPPN
                 }
             }
 
+            //non grid layout, just line
             //for (int i = 0; i < pop.Genomes.Count; i++)
             //{
             //    //var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
@@ -242,20 +234,21 @@ namespace GH_CPPN
 
             else if(dims == 3)
             {
-                for (int i = -shift; i < shift; i++)
+                for (int i = 0; i < subdivisions; i++)
                 {
-                    for (int j = -shift; j < shift; j++)
+                    for (int j = 0; j < subdivisions; j++)
                     {
-                        for (int k = -shift; k < shift; k++)
+                        for (int k = 0; k < subdivisions; k++)
                         {
                             //coords are in range [-0.5, 0.5]
-                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 0] = 1.0 * i / subdivisions;
-                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 1] = 1.0 * j / subdivisions;
-                            coords[(i + shift) * subdivisions * subdivisions + (j + shift) * subdivisions + k + shift, 2] = 1.0 * k / subdivisions;
+                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * i / subdivisions;
+                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 1] = 1.0 * j / subdivisions;
+                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * k / subdivisions;
                         }
                     }
                 }
 
+                coords -= 0.5;
             }
 
             return coords;

@@ -189,7 +189,6 @@ namespace TopolEvo.NEAT
             //    }
             // );
 
-
             for (int i = 0; i < Genomes.Count; i++)
             {
                 var net = new Network(Genomes[i]);

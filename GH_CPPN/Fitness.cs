@@ -85,6 +85,8 @@ namespace TopolEvo.Fitness
         public static Matrix<double> CreateOccupancy(int rows, int cols, Matrix<double> coords, Mesh inputMesh)
         {
 
+            inputMesh.FillHoles();
+
             var occupancy = Matrix<double>.Build.Dense(rows, cols, 0.0);
 
             for (int i = 0; i < occupancy.RowCount; i++)
@@ -92,12 +94,13 @@ namespace TopolEvo.Fitness
                 ////equation of circle
                 var pt = new Point3d(coords[i, 0], coords[i, 1], coords[i, 2]);
 
-                if (inputMesh.IsPointInside(pt, 1.0, false))
+                if (inputMesh.IsPointInside(pt, 0.5, false))
                 {
                     occupancy[i, 0] = 1.0;
                 }
 
             }
+
             return occupancy;
         }
     }
