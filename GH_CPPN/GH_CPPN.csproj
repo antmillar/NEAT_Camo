@@ -77,15 +77,26 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FEM.cs" />
     <Compile Include="Fitness.cs" />
     <Compile Include="Display.cs" />
     <Compile Include="Network.cs" />
     <Compile Include="NEAT.cs" />
     <Compile Include="Linear.cs" />
-    <Compile Include="DynamicFormsComponent.cs" />
+    <Compile Include="FEMComponent.cs" />
     <Compile Include="GH_CPPNInfo.cs" />
     <Compile Include="GHComponent.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\..\repos\BriefFiniteElement.Net\BriefFiniteElementNet.Common\BriefFiniteElementNet.Common.csproj">
+      <Project>{82c63c6b-651a-4308-8b89-b4c643f3a7c2}</Project>
+      <Name>BriefFiniteElementNet.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\..\..\repos\BriefFiniteElement.Net\BriefFiniteElementNet\BriefFiniteElementNet.csproj">
+      <Project>{7cda20d4-9bc8-4bc3-9f22-cb86cd4dc3e1}</Project>
+      <Name>BriefFiniteElementNet</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
