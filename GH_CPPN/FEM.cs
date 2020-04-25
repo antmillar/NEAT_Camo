@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using BriefFiniteElementNet;
 using BriefFiniteElementNet.Elements;
 using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry;
+using System.Linq;
 
 namespace GH_CPPN
 {
     public static class FEM
     {
 
-        public static Tuple<List<Box>, List<Line>> MakeFrame(Model model)
+        public static Tuple<List<Box>, List<Line>> MakeFrame(Model model, int xSize)
         {
 
             var points = new List<Box>();
@@ -18,7 +20,7 @@ namespace GH_CPPN
 
             foreach(var node in model.Nodes)
             {
-                var size = 0.05;
+                var size = 0.02; //1.0 / xSize;
                 var bbox = new BoundingBox(-size, -size, -size, size, size, size);
                 var box = new Box(bbox);
 
@@ -41,45 +43,66 @@ namespace GH_CPPN
 
         }
 
-        public static Model CreateModel(Matrix<double> coords, int xSize, int ySize, int zSize)
+        public static Model CreateModel(Matrix<double> coords, Matrix<double> occupancy, int xSize, int ySize, int zSize)
         {
             // Initiating Model, Nodes and Members
             var model = new Model();
 
             var nodes = new Dictionary<int, Node>();
 
+            //if occupied add node to model
             for (int i = 0; i < coords.RowCount; i++)
             {
-                nodes[i] = new Node(coords[i, 0], coords[i, 1], coords[i, 2]);
+                if (occupancy[i, 0] == 1.0)
+                {
+                    nodes[i] = new Node(coords[i, 0], coords[i, 1], coords[i, 2]);
+                }
             }
 
             //for node in nodes, connect to neighbours
 
+            bool ground = false;
+            int groundLevel = -1; 
+
             //find neighbours
-            for (int i = 0; i < xSize; i++)
+            for (int i = 0; i < zSize; i++)
             {
                 for (int j = 0; j < ySize; j++)
                 {
-                    for (int k = 0; k < zSize; k++)
+                    for (int k = 0; k < xSize; k++)
                     {
+
                         //coords are in range [-0.5, 0.5]
-                        var loc = i * zSize * ySize + j * zSize + k;
-                        var zNeigh = loc + 1;
-                        var yNeigh = loc + zSize;
-                        var xNeigh = loc + zSize * ySize;
+                        var loc = i * xSize * ySize + j * xSize + k;
+                        var xNeigh = loc + 1;
+                        var yNeigh = loc + xSize;
+                        var zNeigh = loc + xSize * ySize;
 
                         var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.01, iy: 0.01, iz: 0.01, j: 0.01);
                         var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
 
-                        if (k < zSize - 1)
+                        //get the level of the first node
+                        if(nodes.ContainsKey(loc) & !ground)
                         {
-                            var a = new BarElement(nodes[loc], nodes[zNeigh]) { Label = loc.ToString() + ":" + zNeigh.ToString() };
+                            ground = true;
+                            groundLevel = i;
+                        }
+
+                        //lock nodes on the ground floor
+                        if (k == groundLevel & nodes.ContainsKey(loc))
+                        {
+                            nodes[loc].Constraints = Constraint.Fixed;
+                        }
+
+                        if (k < xSize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(xNeigh))
+                        {
+                            var a = new BarElement(nodes[loc], nodes[xNeigh]) { Label = loc.ToString() + ":" + xNeigh.ToString() };
                             a.Material = mat;
                             a.Section = sec;
                             model.Elements.Add(a);
                         }
 
-                        if (j < ySize - 1)
+                        if (j < ySize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(yNeigh))
                         {
                             var b = new BarElement(nodes[loc], nodes[yNeigh]) { Label = loc.ToString() + ":" + yNeigh.ToString() };
                             b.Material = mat;
@@ -87,17 +110,17 @@ namespace GH_CPPN
                             model.Elements.Add(b);
                         }
 
-                        if (i < xSize - 1)
+                        if (i < zSize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(zNeigh))
                         {
-                            var c = new BarElement(nodes[loc], nodes[xNeigh]) { Label = loc.ToString() + ":" + xNeigh.ToString() };
+                            var c = new BarElement(nodes[loc], nodes[zNeigh]) { Label = loc.ToString() + ":" + zNeigh.ToString() };
                             c.Material = mat;
                             c.Section = sec;
                             model.Elements.Add(c);
                         }
 
-                        coords[i * zSize * ySize + j * zSize + k, 0] = 1.0 * i / (xSize - 1);
-                        coords[i * zSize * ySize + j * zSize + k, 1] = 1.0 * j / (ySize - 1);
-                        coords[i * zSize * ySize + j * zSize + k, 2] = 1.0 * k / (zSize - 1);
+                        coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * i / (xSize - 1);
+                        coords[i * xSize * ySize + j * xSize + k, 1] = 1.0 * j / (ySize - 1);
+                        coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * k / (zSize - 1);
                     }
                 }
             }
@@ -113,17 +136,13 @@ namespace GH_CPPN
                 //keyValuePair.Value.Constraints = Constraint.RotationFixed;
             }
 
-            //fix bottom layer
-            nodes[0].Constraints = Constraint.Fixed;
-            nodes[3].Constraints = Constraint.Fixed;
-            nodes[6].Constraints = Constraint.Fixed;
-            nodes[9].Constraints = Constraint.Fixed;
-
-            //node to load
 
             //Applying load
             var force = new Force(0, -0, -5000, 0, 0, 0);
-            nodes[11].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
+
+            var maxNode = nodes.Keys.Max();
+
+            nodes[maxNode].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
 
             model.Solve();
 
@@ -136,6 +155,7 @@ namespace GH_CPPN
             foreach (Node node in model.Nodes)
             {
                 displacements.Add(node.GetNodalDisplacement().DZ);
+
             }
 
             return displacements;
@@ -143,15 +163,23 @@ namespace GH_CPPN
 
         public static List<double> GetStresses(Model model)
         {
-            var stresses = new List<double>();
+            var xStresses = new List<double>();
+            var yStresses = new List<double>();
+            var zStresses = new List<double>();
 
             foreach (var element in model.Elements)
             {
                 var temp = element as BarElement;
-                stresses.Add(vonMisesStress(temp.GetInternalForceAt(0)));
+                xStresses.Add((temp.GetInternalForceAt(0)).Fx);
+                yStresses.Add((temp.GetInternalForceAt(0)).Fy);
+                zStresses.Add((temp.GetInternalForceAt(0)).Fz);
             }
 
-            return stresses;
+            var a = xStresses.Sum();
+            var b = yStresses.Sum();
+            var c = zStresses.Sum();
+
+            return zStresses;
         }
 
         public static double vonMisesStress(Force stress)
@@ -238,17 +266,17 @@ namespace GH_CPPN
 
             if (dims == 3)
             {
-                for (int i = 0; i < xSize; i++)
+                for (int i = 0; i < zSize; i++)
                 {
                     for (int j = 0; j < ySize; j++)
                     {
-                        for (int k = 0; k < zSize; k++)
+                        for (int k = 0; k < xSize; k++)
                         {
                             //coords are in range [-0.5, 0.5]
 
-                            coords[i * zSize * ySize + j * zSize + k, 0] = 1.0 * i / (xSize - 1);
-                            coords[i * zSize * ySize + j * zSize + k, 1] = 1.0 * j / (ySize - 1);
-                            coords[i * zSize * ySize + j * zSize + k, 2] = 1.0 * k / (zSize - 1);
+                            coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * i / (xSize - 1);
+                            coords[i * xSize * ySize + j * xSize + k, 1] = 1.0 * j / (ySize - 1);
+                            coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * k / (zSize - 1);
                         }
                     }
                 }
@@ -258,7 +286,53 @@ namespace GH_CPPN
 
             return coords;
         }
+    }
 
+    //I took this code from the internet @ http://james-ramsden.com/convert-from-hsl-to-rgb-colour-codes-in-c/
+    public static class ColorScale
+    {
+        public static Color ColorFromHSL(double h, double s, double l)
+        {
+            double r = 0, g = 0, b = 0;
+            if (l != 0)
+            {
+                if (s == 0)
+                    r = g = b = l;
+                else
+                {
+                    double temp2;
+                    if (l < 0.5)
+                        temp2 = l * (1.0 + s);
+                    else
+                        temp2 = l + s - (l * s);
+
+                    double temp1 = 2.0 * l - temp2;
+
+                    r = GetColorComponent(temp1, temp2, h + 1.0 / 3.0);
+                    g = GetColorComponent(temp1, temp2, h);
+                    b = GetColorComponent(temp1, temp2, h - 1.0 / 3.0);
+                }
+            }
+            return Color.FromArgb((int)(255 * r), (int)(255 * g), (int)(255 * b));
+
+        }
+
+        private static double GetColorComponent(double temp1, double temp2, double temp3)
+        {
+            if (temp3 < 0.0)
+                temp3 += 1.0;
+            else if (temp3 > 1.0)
+                temp3 -= 1.0;
+
+            if (temp3 < 1.0 / 6.0)
+                return temp1 + (temp2 - temp1) * 6.0 * temp3;
+            else if (temp3 < 0.5)
+                return temp2;
+            else if (temp3 < 2.0 / 3.0)
+                return temp1 + ((temp2 - temp1) * ((2.0 / 3.0) - temp3) * 6.0);
+            else
+                return temp1;
+        }
     }
 
 }

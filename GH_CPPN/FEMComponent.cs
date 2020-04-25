@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
+using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry;
+using TopolEvo.Fitness;
 
 // In order to load the result of this wizard, you will also need to
 // add the output bin/ folder of this project to the list of loaded
@@ -33,6 +35,10 @@ namespace GH_CPPN
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddIntegerParameter("x", "x", "x", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("y", "y", "y", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("z", "z", "z", GH_ParamAccess.item);
+            pManager.AddMeshParameter("input mesh", "inputMesh mesh", "inputMesh mesh", GH_ParamAccess.item);
 
         }
 
@@ -43,7 +49,7 @@ namespace GH_CPPN
         {
             // Use the pManager object to register your output parameters.
             // Output parameters do not have default values, but they too must have the correct access type.
-            pManager.AddTextParameter("FEM", "FEM", "FEM", GH_ParamAccess.item);
+            pManager.AddNumberParameter("disp", "disp", "disp", GH_ParamAccess.list);
             pManager.AddMeshParameter("pts", "pts", "pts", GH_ParamAccess.list);
             pManager.AddLineParameter("lines", "lines", "lines", GH_ParamAccess.list);
 
@@ -62,20 +68,49 @@ namespace GH_CPPN
             // First, we need to retrieve all data from the input parameters.
             // We'll start by declaring variables and assigning them starting values.
 
+            int x = 0;
+            int y = 0;
+            int z = 0;
+            Mesh inputMesh = new Mesh();
+
+            DA.GetData(0, ref x);
+            DA.GetData(1, ref y);
+            DA.GetData(2, ref z);
+            DA.GetData(3, ref inputMesh);
+
+
+            var bbox = inputMesh.GetBoundingBox(true);
+            var box = new Box(bbox);
+
+            var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
+            inputMesh.Translate(new Vector3d(-box.Center));
+            inputMesh.Scale(1.0 / longestDim);
+
+
+
+
+
+
+
             var results = FEM.Example1();
-            var coords = FEM.PopulateCoords(2,2, 3, 3);
-  
+            var coords = FEM.PopulateCoords(x ,y, z, 3);
 
 
-            var FEMModel = FEM.CreateModel(coords, 2, 2, 3);
+            //var occupancy = Matrix<double>.Build.Dense(x * y * z, 1 , 1.0);
+            //occupancy[6, 0] = 0.0;
+            //occupancy[9, 0] = 0.0;
+
+
+            var occupancy = Fitness.CreateOccupancy(x * y * z, 1, coords, inputMesh);
+            var FEMModel = FEM.CreateModel(coords, occupancy, x, y, z);
 
             var displacements = FEM.GetDisplacements(FEMModel);
             var stresses = FEM.GetStresses(FEMModel);
 
-            var maxdisp = displacements.Select(x => Math.Abs(x)).Max();
-            var scale = 255.0 / maxdisp;
+            var maxdisp = displacements.Select(i => Math.Abs(i)).Max();
+            var scale = 0.33 / maxdisp;
 
-            var tuple = FEM.MakeFrame(FEMModel);
+            var tuple = FEM.MakeFrame(FEMModel, x);
             var boxes = tuple.Item1;
             var beams = tuple.Item2;
 
@@ -88,7 +123,7 @@ namespace GH_CPPN
                 
                 var mesh = Mesh.CreateFromBox(boxes[i], 1, 1, 1);
 
-                Color color = Color.FromArgb((int) (Math.Abs(displacements[i]) * scale), 0, 0);
+                Color color = ColorScale.ColorFromHSL((0.33 - scale * Math.Abs(displacements[i])), 1.0, 0.5);
                 Color[] colors = Enumerable.Repeat(color, 24).ToArray();
 
 
@@ -98,7 +133,7 @@ namespace GH_CPPN
             }
 
             // Finally assign the spiral to the output parameter.
-            DA.SetData(0, results);
+            //DA.SetDataList(0, displacements);
             DA.SetDataList(1, meshes);
             DA.SetDataList(2, beams);
         }
