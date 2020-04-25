@@ -10,139 +10,154 @@ namespace GH_CPPN
     public static class FEM
     {
 
-        public static Tuple<List<Box>, List<Line>> MakeFrame()
+        public static Tuple<List<Box>, List<Line>> MakeFrame(Model model)
         {
 
-            var coords = PopulateCoords(2, 2, 3, 3);
-            var side = 2.0;
-            var counter = 0;
-            //var coords = Matrix<double>.Build.Dense(12, 3);
             var points = new List<Box>();
             var beams = new List<Line>();
 
-            var xSide = 1.0 / 2;
-            var ySide = 1.0 / 2;
-            var zSide = 1.0 / 3;
-
-            for (int i = 0; i < coords.RowCount; i++)
+            foreach(var node in model.Nodes)
             {
-                var x = coords[i, 0];
-                var y = coords[i, 1];
-                var z = coords[i, 2];
-
-                var size = 0.125;
+                var size = 0.05;
                 var bbox = new BoundingBox(-size, -size, -size, size, size, size);
                 var box = new Box(bbox);
 
-
-                box.Transform(Transform.Translation(x, y, z));
+                box.Transform(Transform.Translation(node.Location.X, node.Location.Y, node.Location.Z));
                 var temp = new Mesh();
 
                 points.Add(box);
+            }
 
-                var line1 = new Line(new Point3d(x, y, z), new Point3d(x, y, (z + zSide) % 1));
-                var line2 = new Line(new Point3d(x, y, z), new Point3d((x + xSide) % 1, y, z));
-                var line3 = new Line(new Point3d(x, y, z), new Point3d(x, (y + ySide) % 1, z));
+            foreach(var bar in model.Elements)
+            {
+                var start = bar.Nodes[0].Location;
+                var end = bar.Nodes[1].Location;
 
-                beams.Add(line1);
-                beams.Add(line2);
-                beams.Add(line3);
-
+                var line = new Line(new Point3d(start.X, start.Y, start.Z), new Point3d(end.X, end.Y, end.Z));
+                beams.Add(line);
             }
 
              return new Tuple<List<Box>, List<Line>>(points, beams);
 
         }
 
-        public static List<double> AnalyseFrame(List<Box> boxes)
+        public static Model CreateModel(Matrix<double> coords, int xSize, int ySize, int zSize)
         {
-
             // Initiating Model, Nodes and Members
             var model = new Model();
 
             var nodes = new Dictionary<int, Node>();
 
-            for (int i = 0; i < boxes.Count; i++)
+            for (int i = 0; i < coords.RowCount; i++)
             {
-                nodes[i] = new Node(boxes[i].Center.X, boxes[i].Center.Y, boxes[i].Center.Z);
+                nodes[i] = new Node(coords[i, 0], coords[i, 1], coords[i, 2]);
             }
 
-            //vertical connections
-            var e1 = new TrussElement2Node(nodes[0], nodes[1]) { Label = "e1" };
-            var e2 = new TrussElement2Node(nodes[3], nodes[4]) { Label = "e2" };
-            var e3 = new TrussElement2Node(nodes[9], nodes[10]) { Label = "e3" };
-            var e4 = new TrussElement2Node(nodes[6], nodes[7]) { Label = "e4" };
+            //for node in nodes, connect to neighbours
 
-            //vertical connections
-            var e5 = new TrussElement2Node(nodes[1], nodes[2]) { Label = "e5" };
-            var e6 = new TrussElement2Node(nodes[4], nodes[5]) { Label = "e6" };
-            var e7 = new TrussElement2Node(nodes[10], nodes[11]) { Label = "e7" };
-            var e8 = new TrussElement2Node(nodes[7], nodes[8]) { Label = "e8" };
-            //Note: labels for all members should be unique, else you will receive InvalidLabelException when adding it to model
+            //find neighbours
+            for (int i = 0; i < xSize; i++)
+            {
+                for (int j = 0; j < ySize; j++)
+                {
+                    for (int k = 0; k < zSize; k++)
+                    {
+                        //coords are in range [-0.5, 0.5]
+                        var loc = i * zSize * ySize + j * zSize + k;
+                        var zNeigh = loc + 1;
+                        var yNeigh = loc + zSize;
+                        var xNeigh = loc + zSize * ySize;
 
-            //floor connections
-            var e9 = new TrussElement2Node(nodes[0], nodes[3]) { Label = "e9" };
-            var e10 = new TrussElement2Node(nodes[3], nodes[9]) { Label = "e10" };
-            var e11 = new TrussElement2Node(nodes[9], nodes[6]) { Label = "e11" };
-            var e12 = new TrussElement2Node(nodes[6], nodes[0]) { Label = "e12" };
+                        var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.01, iy: 0.01, iz: 0.01, j: 0.01);
+                        var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
 
-            //roof connections
-            var e13 = new TrussElement2Node(nodes[1], nodes[4]) { Label = "e13" };
-            var e14 = new TrussElement2Node(nodes[4], nodes[10]) { Label = "e14" };
-            var e15 = new TrussElement2Node(nodes[10], nodes[7]) { Label = "e15" };
-            var e16 = new TrussElement2Node(nodes[7], nodes[1]) { Label = "e16" };
+                        if (k < zSize - 1)
+                        {
+                            var a = new BarElement(nodes[loc], nodes[zNeigh]) { Label = loc.ToString() + ":" + zNeigh.ToString() };
+                            a.Material = mat;
+                            a.Section = sec;
+                            model.Elements.Add(a);
+                        }
 
-            //roof connections
-            var e17 = new TrussElement2Node(nodes[2], nodes[5]) { Label = "e17" };
-            var e18 = new TrussElement2Node(nodes[5], nodes[11]) { Label = "e18" };
-            var e19 = new TrussElement2Node(nodes[11], nodes[8]) { Label = "e19" };
-            var e20 = new TrussElement2Node(nodes[8], nodes[2]) { Label = "e20" };
+                        if (j < ySize - 1)
+                        {
+                            var b = new BarElement(nodes[loc], nodes[yNeigh]) { Label = loc.ToString() + ":" + yNeigh.ToString() };
+                            b.Material = mat;
+                            b.Section = sec;
+                            model.Elements.Add(b);
+                        }
 
+                        if (i < xSize - 1)
+                        {
+                            var c = new BarElement(nodes[loc], nodes[xNeigh]) { Label = loc.ToString() + ":" + xNeigh.ToString() };
+                            c.Material = mat;
+                            c.Section = sec;
+                            model.Elements.Add(c);
+                        }
 
-            e1.A = e2.A = e3.A = e4.A = e5.A = e6.A = e7.A = e8.A = e9.A = e10.A = e11.A = e12.A = e13.A = e14.A = e15.A = e16.A = e17.A = e18.A = e19.A = e20.A = 9e-4;
-            e1.E = e2.E = e3.E = e4.E = e5.E = e6.E = e7.E = e4.E = e9.E = e10.E = e11.E = e12.E = e13.E = e14.E = e15.E = e16.E = e17.E = e18.E = e19.E = e20.E = 210e9;
+                        coords[i * zSize * ySize + j * zSize + k, 0] = 1.0 * i / (xSize - 1);
+                        coords[i * zSize * ySize + j * zSize + k, 1] = 1.0 * j / (ySize - 1);
+                        coords[i * zSize * ySize + j * zSize + k, 2] = 1.0 * k / (zSize - 1);
+                    }
+                }
+            }
 
+            
             model.Nodes.AddRange(nodes.Values);
-            model.Elements.Add(e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20);
 
             //Applying restrains
 
-            foreach(KeyValuePair<int, Node> keyValuePair in nodes)
+            foreach (KeyValuePair<int, Node> keyValuePair in nodes)
             {
-                keyValuePair.Value.Constraints = Constraint.Fixed;
+                //keyValuePair.Value.Constraints = new Constraint(DofConstraint.Fixed, DofConstraint.Fixed, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released);
+                //keyValuePair.Value.Constraints = Constraint.RotationFixed;
             }
+
+            //fix bottom layer
+            nodes[0].Constraints = Constraint.Fixed;
+            nodes[3].Constraints = Constraint.Fixed;
+            nodes[6].Constraints = Constraint.Fixed;
+            nodes[9].Constraints = Constraint.Fixed;
 
             //node to load
 
-            nodes[11].Constraints = Constraint.RotationFixed;
-            nodes[10].Constraints = Constraint.RotationFixed;
-
             //Applying load
-            var force = new Force(-1000, -1000, -5000, 0, 0, 0);
+            var force = new Force(0, -0, -5000, 0, 0, 0);
             nodes[11].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
-
-            //Adds a NodalLoad with Default LoadCase
 
             model.Solve();
 
-            var reactions = new List<Force>();
-
-            foreach (KeyValuePair<int, Node> keyValuePair in nodes)
-            {
-                reactions.Add(keyValuePair.Value.GetSupportReaction());
-            }
-
-            var absForces = new List<double>();
-
-            foreach(var reaction in reactions)
-            {
-                var absForce = Math.Abs(reaction.Fx) + Math.Abs(reaction.Fy) + Math.Abs(reaction.Fz);
-                absForces.Add(absForce);
-            }
-
-            return absForces;
+            return model;
         }
 
+        public static List<double> GetDisplacements(Model model)
+        {
+            var displacements = new List<double>();
+            foreach (Node node in model.Nodes)
+            {
+                displacements.Add(node.GetNodalDisplacement().DZ);
+            }
+
+            return displacements;
+        }
+
+        public static List<double> GetStresses(Model model)
+        {
+            var stresses = new List<double>();
+
+            foreach (var element in model.Elements)
+            {
+                var temp = element as BarElement;
+                stresses.Add(vonMisesStress(temp.GetInternalForceAt(0)));
+            }
+
+            return stresses;
+        }
+
+        public static double vonMisesStress(Force stress)
+        {
+            return Math.Sqrt((Math.Pow((stress.Fx - stress.Fy), 2) + Math.Pow((stress.Fx - stress.Fy), 2) + Math.Pow((stress.Fx - stress.Fy), 2)) / 2);
+        }
 
         public static string Example1()
         {

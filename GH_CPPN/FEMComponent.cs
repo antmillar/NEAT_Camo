@@ -61,24 +61,34 @@ namespace GH_CPPN
         {
             // First, we need to retrieve all data from the input parameters.
             // We'll start by declaring variables and assigning them starting values.
-            
+
             var results = FEM.Example1();
+            var coords = FEM.PopulateCoords(2,2, 3, 3);
   
-            var tuple = FEM.MakeFrame();
+
+
+            var FEMModel = FEM.CreateModel(coords, 2, 2, 3);
+
+            var displacements = FEM.GetDisplacements(FEMModel);
+            var stresses = FEM.GetStresses(FEMModel);
+
+            var maxdisp = displacements.Select(x => Math.Abs(x)).Max();
+            var scale = 255.0 / maxdisp;
+
+            var tuple = FEM.MakeFrame(FEMModel);
             var boxes = tuple.Item1;
             var beams = tuple.Item2;
 
-            var test = FEM.AnalyseFrame(boxes);
-
-            var total = test.Sum();
+            //var total = test.Sum();
 
             var meshes = new List<Mesh>();
 
-            for(int i = 0; i < boxes.Count; i++)
+            for (int i = 0; i < boxes.Count; i++)
             {
+                
                 var mesh = Mesh.CreateFromBox(boxes[i], 1, 1, 1);
 
-                Color color = Color.FromArgb((int) Math.Min(255, test[i]), 255, 0);
+                Color color = Color.FromArgb((int) (Math.Abs(displacements[i]) * scale), 0, 0);
                 Color[] colors = Enumerable.Repeat(color, 24).ToArray();
 
 
