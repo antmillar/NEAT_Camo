@@ -62,7 +62,10 @@ namespace GH_CPPN
             //for node in nodes, connect to neighbours
 
             bool ground = false;
-            int groundLevel = -1; 
+            int groundLevel = -1;
+            int topLevel = -1;
+            int fixedCount = 0;
+            int topNode = -1;
 
             //find neighbours
             for (int i = 0; i < zSize; i++)
@@ -81,17 +84,24 @@ namespace GH_CPPN
                         var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.01, iy: 0.01, iz: 0.01, j: 0.01);
                         var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
 
-                        //get the level of the first node
+                        //get the level of the lowest nodes, problem if no nodes...
                         if(nodes.ContainsKey(loc) & !ground)
                         {
                             ground = true;
                             groundLevel = i;
                         }
 
+                        if (nodes.ContainsKey(loc) & i > topLevel)
+                        {
+                            topLevel = i;
+                            topNode = loc;
+                        }
+
                         //lock nodes on the ground floor
-                        if (k == groundLevel & nodes.ContainsKey(loc))
+                        if (i == groundLevel & nodes.ContainsKey(loc))
                         {
                             nodes[loc].Constraints = Constraint.Fixed;
+                            fixedCount++;
                         }
 
                         if (k < xSize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(xNeigh))
@@ -117,10 +127,6 @@ namespace GH_CPPN
                             c.Section = sec;
                             model.Elements.Add(c);
                         }
-
-                        coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * i / (xSize - 1);
-                        coords[i * xSize * ySize + j * xSize + k, 1] = 1.0 * j / (ySize - 1);
-                        coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * k / (zSize - 1);
                     }
                 }
             }
@@ -140,9 +146,7 @@ namespace GH_CPPN
             //Applying load
             var force = new Force(0, -0, -5000, 0, 0, 0);
 
-            var maxNode = nodes.Keys.Max();
-
-            nodes[maxNode].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
+            nodes[topNode].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
 
             model.Solve();
 
@@ -154,7 +158,7 @@ namespace GH_CPPN
             var displacements = new List<double>();
             foreach (Node node in model.Nodes)
             {
-                displacements.Add(node.GetNodalDisplacement().DZ);
+                displacements.Add(node.GetNodalDisplacement().DY);
 
             }
 
@@ -274,9 +278,9 @@ namespace GH_CPPN
                         {
                             //coords are in range [-0.5, 0.5]
 
-                            coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * i / (xSize - 1);
+                            coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * k / (xSize - 1);
                             coords[i * xSize * ySize + j * xSize + k, 1] = 1.0 * j / (ySize - 1);
-                            coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * k / (zSize - 1);
+                            coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * i / (zSize - 1);
                         }
                     }
                 }

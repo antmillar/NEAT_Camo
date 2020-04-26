@@ -87,16 +87,16 @@ namespace TopolEvo.Display
                         if (col > 0.5) {
                             var cube = new Mesh();
 
-                            cube.Vertices.Add(i * size, j * size, k * size);
-                            cube.Vertices.Add((i + 1) * size, j * size, k * size);
-                            cube.Vertices.Add(i * size, (j + 1) * size, k * size);
-                            cube.Vertices.Add((i + 1) * size, (j + 1) * size, k * size);
+                            cube.Vertices.Add(k * size, j * size, i * size);
+                            cube.Vertices.Add((k + 1) * size, j * size, i * size);
+                            cube.Vertices.Add(k * size, (j + 1) * size, i * size);
+                            cube.Vertices.Add((k + 1) * size, (j + 1) * size, i * size);
 
 
-                            cube.Vertices.Add(i * size, j * size, (k + 1) * size);
-                            cube.Vertices.Add((i + 1) * size, j * size, (k + 1) * size);
-                            cube.Vertices.Add(i * size, (j + 1) * size, (k + 1) * size);
-                            cube.Vertices.Add((i + 1) * size, (j + 1) * size, (k + 1) * size);
+                            cube.Vertices.Add(k * size, j * size, (i + 1) * size);
+                            cube.Vertices.Add((k + 1) * size, j * size, (i + 1) * size);
+                            cube.Vertices.Add(k * size, (j + 1) * size, (i + 1) * size);
+                            cube.Vertices.Add((k + 1) * size, (j + 1) * size, (i + 1) * size);
 
                             cube.Faces.AddFace(0, 1, 3, 2);
                             cube.Faces.AddFace(1, 5, 7, 3);

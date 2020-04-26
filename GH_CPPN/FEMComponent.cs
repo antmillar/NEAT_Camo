@@ -49,8 +49,8 @@ namespace GH_CPPN
         {
             // Use the pManager object to register your output parameters.
             // Output parameters do not have default values, but they too must have the correct access type.
-            pManager.AddNumberParameter("disp", "disp", "disp", GH_ParamAccess.list);
-            pManager.AddMeshParameter("pts", "pts", "pts", GH_ParamAccess.list);
+            pManager.AddNumberParameter("disp", "disp", "disp", GH_ParamAccess.item);
+            pManager.AddMeshParameter("pts", "pts", "pts", GH_ParamAccess.item);
             pManager.AddLineParameter("lines", "lines", "lines", GH_ParamAccess.list);
 
             // Sometimes you want to hide a specific parameter from the Rhino preview.
@@ -96,11 +96,6 @@ namespace GH_CPPN
             var coords = FEM.PopulateCoords(x ,y, z, 3);
 
 
-            //var occupancy = Matrix<double>.Build.Dense(x * y * z, 1 , 1.0);
-            //occupancy[6, 0] = 0.0;
-            //occupancy[9, 0] = 0.0;
-
-
             var occupancy = Fitness.CreateOccupancy(x * y * z, 1, coords, inputMesh);
             var FEMModel = FEM.CreateModel(coords, occupancy, x, y, z);
 
@@ -114,7 +109,6 @@ namespace GH_CPPN
             var boxes = tuple.Item1;
             var beams = tuple.Item2;
 
-            //var total = test.Sum();
 
             var meshes = new List<Mesh>();
 
@@ -132,10 +126,15 @@ namespace GH_CPPN
 
             }
 
+            Mesh meshComb = new Mesh();
+            meshComb.Append(meshes);
+
+
+
             // Finally assign the spiral to the output parameter.
-            //DA.SetDataList(0, displacements);
-            DA.SetDataList(1, meshes);
-            DA.SetDataList(2, beams);
+            DA.SetData(0, displacements.Sum());
+            //DA.SetData(1, meshComb);
+            //DA.SetDataList(2, beams);
         }
 
 

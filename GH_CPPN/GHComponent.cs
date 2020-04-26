@@ -241,9 +241,9 @@ namespace GH_CPPN
                         for (int k = 0; k < subdivisions; k++)
                         {
                             //coords are in range [-0.5, 0.5]
-                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * i / subdivisions;
+                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * k / subdivisions;
                             coords[i * subdivisions * subdivisions + j * subdivisions + k , 1] = 1.0 * j / subdivisions;
-                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * k / subdivisions;
+                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * i / subdivisions;
                         }
                     }
                 }
