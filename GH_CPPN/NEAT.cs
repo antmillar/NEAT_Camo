@@ -16,7 +16,7 @@ namespace TopolEvo.NEAT
     public static class Config
     {
         public const double mutateRate = 0.2;
-        public const string fitnessTarget = "min";
+        public const string fitnessTarget = "max";
         public static double survivalCutoff = 0.5;
         public static double asexualRate = 0.25;
 
@@ -317,7 +317,7 @@ namespace TopolEvo.NEAT
         public int ID { get; set; } 
 
 
-        public Genome(int inputNodes = 3 , int hiddenNodes = 6, int outputNodes = 1)
+        public Genome(int inputNodes = 3 , int hiddenNodes = 8, int outputNodes = 1)
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();

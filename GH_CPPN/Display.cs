@@ -84,7 +84,7 @@ namespace TopolEvo.Display
                     {
                         double col = output[counter, 0];
 
-                        if (col > 0.5) {
+                        if (col == 1.0) {
                             var cube = new Mesh();
 
                             cube.Vertices.Add(k * size, j * size, i * size);

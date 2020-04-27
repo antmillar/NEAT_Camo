@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
@@ -51,7 +52,7 @@ namespace GH_CPPN
             // Output parameters do not have default values, but they too must have the correct access type.
             pManager.AddNumberParameter("disp", "disp", "disp", GH_ParamAccess.item);
             pManager.AddMeshParameter("pts", "pts", "pts", GH_ParamAccess.item);
-            pManager.AddLineParameter("lines", "lines", "lines", GH_ParamAccess.list);
+            pManager.AddTextParameter("time", "time", "time", GH_ParamAccess.item);
 
             // Sometimes you want to hide a specific parameter from the Rhino preview.
             // You can use the HideParameter() method as a quick way:
@@ -67,6 +68,9 @@ namespace GH_CPPN
         {
             // First, we need to retrieve all data from the input parameters.
             // We'll start by declaring variables and assigning them starting values.
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            
 
             int x = 0;
             int y = 0;
@@ -84,19 +88,15 @@ namespace GH_CPPN
 
             var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
             inputMesh.Translate(new Vector3d(-box.Center));
-            inputMesh.Scale(1.0 / longestDim);
 
+            var rescale = (1000.0 / longestDim) / 1000.0; //better for maintaining accuracy than dividing 1
+            inputMesh.Scale(rescale);
 
-
-
-
-
-
-            var results = FEM.Example1();
             var coords = FEM.PopulateCoords(x ,y, z, 3);
 
 
             var occupancy = Fitness.CreateOccupancy(x * y * z, 1, coords, inputMesh);
+
             var FEMModel = FEM.CreateModel(coords, occupancy, x, y, z);
 
             var displacements = FEM.GetDisplacements(FEMModel);
@@ -129,12 +129,13 @@ namespace GH_CPPN
             Mesh meshComb = new Mesh();
             meshComb.Append(meshes);
 
-
+            sw.Stop();
+            var time = sw.Elapsed.ToString();
 
             // Finally assign the spiral to the output parameter.
-            DA.SetData(0, displacements.Sum());
-            //DA.SetData(1, meshComb);
-            //DA.SetDataList(2, beams);
+            DA.SetData(0, displacements.Max(i => Math.Abs(i)) * 10e7);
+            DA.SetData(1, meshComb);
+            DA.SetData(2, time);
         }
 
 

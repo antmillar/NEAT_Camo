@@ -117,11 +117,11 @@ namespace GH_CPPN
 
                 outputs = pop.Evaluate(coords);
 
+                outputs = Fitness.OutputOccupancy(outputs);
+
                 //var target = Fitness.CreateTarget(width * width * width, 1, coords);
-                fits = Fitness.Function(pop, outputs, coords, occupancy);
+                fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
                 pop.SortByFitness();
-
-
 
                 targetMesh = GenerateTargetMesh(occupancy, subdivisions);
                 meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
@@ -133,7 +133,7 @@ namespace GH_CPPN
             if (button)
             {
                 Config.survivalCutoff = cutoff;
-                Run(10, subdivisions, popSize);
+                Run(1, subdivisions, popSize);
             }
 
             //output data from GH component
@@ -152,7 +152,8 @@ namespace GH_CPPN
                 pop.NextGeneration();
 
                 outputs = pop.Evaluate(coords);
-                fits = Fitness.Function(pop, outputs, coords, occupancy);
+                outputs = Fitness.OutputOccupancy(outputs);
+                fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
 
                 pop.SortByFitness();
 

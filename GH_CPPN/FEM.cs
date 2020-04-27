@@ -6,6 +6,8 @@ using BriefFiniteElementNet.Elements;
 using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace GH_CPPN
 {
@@ -49,6 +51,7 @@ namespace GH_CPPN
             var model = new Model();
 
             var nodes = new Dictionary<int, Node>();
+            var nodeIndices = new List<int>();
 
             //if occupied add node to model
             for (int i = 0; i < coords.RowCount; i++)
@@ -56,91 +59,80 @@ namespace GH_CPPN
                 if (occupancy[i, 0] == 1.0)
                 {
                     nodes[i] = new Node(coords[i, 0], coords[i, 1], coords[i, 2]);
+                    nodeIndices.Add(i);
                 }
             }
 
             //for node in nodes, connect to neighbours
 
-            bool ground = false;
-            int groundLevel = -1;
-            int topLevel = -1;
+            int groundLevel = nodeIndices.Select(i => i / (xSize * ySize)).Min();
+            int topLevel = nodeIndices.Select(i => i / (xSize * ySize)).Max();
+            int topNode = nodeIndices.Max();
             int fixedCount = 0;
-            int topNode = -1;
 
-            //find neighbours
-            for (int i = 0; i < zSize; i++)
+            var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.1, iy: 0.1, iz: 0.1);
+            var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
+
+            var elements = new ConcurrentBag<Element>();
+
+            Parallel.For(0, nodeIndices.Count,  i => 
             {
-                for (int j = 0; j < ySize; j++)
+                var index = nodeIndices[i];
+
+                int x = (index % (xSize * ySize)) % xSize;
+                int y = (index % (xSize * ySize)) / xSize; //integer division
+                int z = index / (xSize * ySize); //integer division
+
+                var xNeigh = index + 1;
+                var yNeigh = index + xSize;
+                var zNeigh = index + xSize * ySize;
+
+                //lock nodes on the ground floor
+                if (z == groundLevel)
                 {
-                    for (int k = 0; k < xSize; k++)
-                    {
+                    nodes[index].Constraints = Constraint.Fixed;
+                    fixedCount++;
+                }
 
-                        //coords are in range [-0.5, 0.5]
-                        var loc = i * xSize * ySize + j * xSize + k;
-                        var xNeigh = loc + 1;
-                        var yNeigh = loc + xSize;
-                        var zNeigh = loc + xSize * ySize;
+                if (x < xSize - 1 & nodeIndices.Contains(xNeigh))
+                {
+                    var xBar = new BarElement(nodes[index], nodes[xNeigh]) { Label = index.ToString() + ":" + xNeigh.ToString() };
+                    xBar.Behavior = BarElementBehaviours.FullFrame;
+                    xBar.Material = mat;
+                    xBar.Section = sec;
+                    elements.Add(xBar);
+                }
 
-                        var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.01, iy: 0.01, iz: 0.01, j: 0.01);
-                        var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
+                if (y < ySize - 1 & nodeIndices.Contains(yNeigh))
+                {
+                    var yBar = new BarElement(nodes[index], nodes[yNeigh]) { Label = index.ToString() + ":" + yNeigh.ToString() };
+                    yBar.Behavior = BarElementBehaviours.FullFrame;
+                    yBar.Material = mat;
+                    yBar.Section = sec;
+                    elements.Add(yBar);
+                }
 
-                        //get the level of the lowest nodes, problem if no nodes...
-                        if(nodes.ContainsKey(loc) & !ground)
-                        {
-                            ground = true;
-                            groundLevel = i;
-                        }
-
-                        if (nodes.ContainsKey(loc) & i > topLevel)
-                        {
-                            topLevel = i;
-                            topNode = loc;
-                        }
-
-                        //lock nodes on the ground floor
-                        if (i == groundLevel & nodes.ContainsKey(loc))
-                        {
-                            nodes[loc].Constraints = Constraint.Fixed;
-                            fixedCount++;
-                        }
-
-                        if (k < xSize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(xNeigh))
-                        {
-                            var a = new BarElement(nodes[loc], nodes[xNeigh]) { Label = loc.ToString() + ":" + xNeigh.ToString() };
-                            a.Material = mat;
-                            a.Section = sec;
-                            model.Elements.Add(a);
-                        }
-
-                        if (j < ySize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(yNeigh))
-                        {
-                            var b = new BarElement(nodes[loc], nodes[yNeigh]) { Label = loc.ToString() + ":" + yNeigh.ToString() };
-                            b.Material = mat;
-                            b.Section = sec;
-                            model.Elements.Add(b);
-                        }
-
-                        if (i < zSize - 1 & nodes.ContainsKey(loc) & nodes.ContainsKey(zNeigh))
-                        {
-                            var c = new BarElement(nodes[loc], nodes[zNeigh]) { Label = loc.ToString() + ":" + zNeigh.ToString() };
-                            c.Material = mat;
-                            c.Section = sec;
-                            model.Elements.Add(c);
-                        }
-                    }
+                if (z < zSize - 1 & nodeIndices.Contains(zNeigh))
+                {
+                    var zBar = new BarElement(nodes[index], nodes[zNeigh]) { Label = index.ToString() + ":" + zNeigh.ToString() };
+                    zBar.Behavior = BarElementBehaviours.FullFrame;
+                    zBar.Material = mat;
+                    zBar.Section = sec;
+                    elements.Add(zBar);
                 }
             }
+            );
 
-            
             model.Nodes.AddRange(nodes.Values);
+            model.Elements.Add(elements.ToArray());
 
-            //Applying restrains
+            //Applying constraints
 
-            foreach (KeyValuePair<int, Node> keyValuePair in nodes)
-            {
-                //keyValuePair.Value.Constraints = new Constraint(DofConstraint.Fixed, DofConstraint.Fixed, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released);
-                //keyValuePair.Value.Constraints = Constraint.RotationFixed;
-            }
+            //foreach (KeyValuePair<int, Node> keyValuePair in nodes)
+            //{
+            //    //keyValuePair.Value.Constraints = new Constraint(DofConstraint.Fixed, DofConstraint.Fixed, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released);
+            //    keyValuePair.Value.Constraints = Constraint.RotationFixed;
+            //}
 
 
             //Applying load
