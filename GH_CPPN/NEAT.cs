@@ -314,8 +314,9 @@ namespace TopolEvo.NEAT
         public List<ConnectionGene> Connections { get; set; }
         protected internal double Fitness { get; set; }
 
-        public int ID { get; set; } 
-
+        public int ID { get; set; }
+        public string FitnessString { get; set; }
+        public BriefFiniteElementNet.Model FEMModel { get; set; }
 
         public Genome(int inputNodes = 3 , int hiddenNodes = 8, int outputNodes = 1)
         {

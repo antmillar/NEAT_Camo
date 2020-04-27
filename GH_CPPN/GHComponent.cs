@@ -4,6 +4,7 @@ using NumSharp;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TopolEvo.Architecture;
 using TopolEvo.Display;
@@ -24,7 +25,8 @@ namespace GH_CPPN
         private bool init;
         private List<Mesh> meshes = new List<Mesh>();
         private Population pop;
-        private List<double> fits;
+        private List<string> fits;
+        private List<Mesh> femModels;
         private Matrix<double> coords;
         private Dictionary<int, Matrix<double>> outputs;
         private Mesh targetMesh;
@@ -32,6 +34,7 @@ namespace GH_CPPN
         private int subdivisions = 10;
         private int popSize = 50;
         private Matrix<double> occupancy;
+        private Stopwatch timer;
 
 
         public override Guid ComponentGuid
@@ -64,6 +67,8 @@ namespace GH_CPPN
             pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
             pManager.AddNumberParameter("mean fitness", "mean fitness", "means of fitnesses", GH_ParamAccess.item);
             pManager.AddMeshParameter("target mesh", "target", "target meshes", GH_ParamAccess.item);
+            pManager.AddTextParameter("timer", "timer", "timer", GH_ParamAccess.item);
+            pManager.AddMeshParameter("fems", "fems", "fems", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -108,6 +113,10 @@ namespace GH_CPPN
             {
                 init = true;
 
+                timer = new Stopwatch();
+                timer.Start();
+
+
                 //initialise globals
 
                 pop = new Population(popSize);
@@ -121,10 +130,14 @@ namespace GH_CPPN
 
                 //var target = Fitness.CreateTarget(width * width * width, 1, coords);
                 fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
-                pop.SortByFitness();
+
+                femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
+                femModels = GenerateFEMs(femModels, popSize);
+                timer.Stop();
 
                 targetMesh = GenerateTargetMesh(occupancy, subdivisions);
                 meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
+
 
             }
 
@@ -132,15 +145,23 @@ namespace GH_CPPN
 
             if (button)
             {
+                timer = new Stopwatch();
+                timer.Start();
+
                 Config.survivalCutoff = cutoff;
                 Run(1, subdivisions, popSize);
+
+                timer.Stop();
+                
             }
 
             //output data from GH component
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
-            DA.SetData(2, fits.Average());
+           // DA.SetData(2, fits.Average());
             DA.SetData(3, targetMesh);
+            DA.SetData(4, timer.Elapsed.ToString());
+            DA.SetDataList(5, femModels);
         }
 
 
@@ -155,8 +176,8 @@ namespace GH_CPPN
                 outputs = Fitness.OutputOccupancy(outputs);
                 fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
 
-                pop.SortByFitness();
-
+                femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
+                femModels = GenerateFEMs(femModels, popSize);
             }
 
             targetMesh = GenerateTargetMesh(occupancy, subdivisions);
@@ -181,7 +202,9 @@ namespace GH_CPPN
             int gridWidth = Math.Min(10, popSize);
             int gridDepth = popSize / gridWidth + 1;
             int padding = 10;
-            int maxDisplay = Math.Min(10, popSize);
+            int maxDisplay = Math.Min(20, popSize);
+
+
 
             var count = 0;
 
@@ -212,6 +235,37 @@ namespace GH_CPPN
             //    meshes.Add(combinedMesh);
             //}
             return meshes;
+        }
+
+        private List<Mesh> GenerateFEMs(List<Mesh> femMeshes, int popSize)
+        {
+            meshes.Clear();
+
+            //draw a grid of results
+            int gridWidth = Math.Min(10, popSize);
+            int gridDepth = popSize / gridWidth + 1;
+            int padding = 10;
+            int maxDisplay = Math.Min(20, popSize);
+            double size = 10.0 / subdivisions;
+
+            var count = 0;
+
+            for (int i = 0; i < gridDepth; i++)
+            {
+                for (int j = 0; j < gridWidth; j++)
+                {
+                    if (count < maxDisplay)
+                    {
+                        femModels[count].Scale(10.0);
+                        femModels[count].Translate(new Vector3d(5 + size /2, 5+size / 2, 5+size / 2));
+                        femModels[count].Translate(new Vector3d(j * (10 + padding), i * (10 + padding), 0));
+  
+                    }
+                    count++;
+                }
+            }
+
+            return femMeshes;
         }
 
         private Matrix<double> PopulateCoords(int subdivisions, int dims)

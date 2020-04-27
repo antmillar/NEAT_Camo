@@ -14,13 +14,17 @@ namespace GH_CPPN
     public static class FEM
     {
 
-        public static Tuple<List<Box>, List<Line>> MakeFrame(Model model, int xSize)
+        public static Tuple<Mesh, List<Line>> MakeFrame(Model model, List<double> displacements)
         {
 
             var points = new List<Box>();
             var beams = new List<Line>();
+            var meshes = new List<Mesh>();
+            Mesh meshComb = new Mesh();
 
-            foreach(var node in model.Nodes)
+            if (model is null | displacements is null) return new Tuple<Mesh, List<Line>>(meshComb, beams);
+
+            foreach (var node in model.Nodes)
             {
                 var size = 0.02; //1.0 / xSize;
                 var bbox = new BoundingBox(-size, -size, -size, size, size, size);
@@ -41,7 +45,29 @@ namespace GH_CPPN
                 beams.Add(line);
             }
 
-             return new Tuple<List<Box>, List<Line>>(points, beams);
+
+            var maxdisp = displacements.Select(i => Math.Abs(i)).Max();
+            var scale = 0.33 / maxdisp;
+
+            for (int i = 0; i < points.Count; i++)
+            {
+
+                var mesh = Mesh.CreateFromBox(points[i], 1, 1, 1);
+
+                Color color = ColorScale.ColorFromHSL((0.33 - scale * Math.Abs(displacements[i])), 1.0, 0.5);
+                Color[] colors = Enumerable.Repeat(color, 24).ToArray();
+
+
+                mesh.VertexColors.AppendColors(colors);
+                meshes.Add(mesh.DuplicateMesh());
+
+            }
+
+
+            meshComb.Append(meshes);
+
+
+            return new Tuple<Mesh, List<Line>>(meshComb, beams);
 
         }
 
@@ -65,9 +91,15 @@ namespace GH_CPPN
 
             //for node in nodes, connect to neighbours
 
-            int groundLevel = nodeIndices.Select(i => i / (xSize * ySize)).Min();
-            int topLevel = nodeIndices.Select(i => i / (xSize * ySize)).Max();
-            int topNode = nodeIndices.Max();
+            int groundLevel = 0; // nodeIndices.Select(i => i / (xSize * ySize)).Min();
+            int topLevel = zSize - 1; // nodeIndices.Select(i => i / (xSize * ySize)).Max();
+            //int topNode = nodeIndices.Max();
+            var b = nodeIndices.Where(value => (value / (xSize * ySize) == 5)).Count();
+            if(b == 0)
+            {
+                var test = "test";
+            }
+            int topNode = nodeIndices.Where(value => (value / (xSize * ySize) == topLevel)).Max(); //this line fails if can't find something on top row.
             int fixedCount = 0;
 
             var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.1, iy: 0.1, iz: 0.1);
@@ -148,6 +180,9 @@ namespace GH_CPPN
         public static List<double> GetDisplacements(Model model)
         {
             var displacements = new List<double>();
+
+            if (model is null) return displacements;
+
             foreach (Node node in model.Nodes)
             {
                 displacements.Add(node.GetNodalDisplacement().DY);

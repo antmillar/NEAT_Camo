@@ -102,32 +102,11 @@ namespace GH_CPPN
             var displacements = FEM.GetDisplacements(FEMModel);
             var stresses = FEM.GetStresses(FEMModel);
 
-            var maxdisp = displacements.Select(i => Math.Abs(i)).Max();
-            var scale = 0.33 / maxdisp;
 
-            var tuple = FEM.MakeFrame(FEMModel, x);
-            var boxes = tuple.Item1;
+
+            var tuple = FEM.MakeFrame(FEMModel, displacements);
+            var meshComb = tuple.Item1;
             var beams = tuple.Item2;
-
-
-            var meshes = new List<Mesh>();
-
-            for (int i = 0; i < boxes.Count; i++)
-            {
-                
-                var mesh = Mesh.CreateFromBox(boxes[i], 1, 1, 1);
-
-                Color color = ColorScale.ColorFromHSL((0.33 - scale * Math.Abs(displacements[i])), 1.0, 0.5);
-                Color[] colors = Enumerable.Repeat(color, 24).ToArray();
-
-
-                mesh.VertexColors.AppendColors(colors);
-                meshes.Add(mesh.DuplicateMesh());
-
-            }
-
-            Mesh meshComb = new Mesh();
-            meshComb.Append(meshes);
 
             sw.Stop();
             var time = sw.Elapsed.ToString();
