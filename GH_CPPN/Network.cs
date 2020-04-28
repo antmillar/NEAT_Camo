@@ -165,21 +165,18 @@ namespace TopolEvo.Architecture
 
             //set up the input layer
 
-            var inputs = M.Dense(input.RowCount, 3, 0);
+            var inputs = M.Dense(input.RowCount, input.ColumnCount, 0);
 
-            var x = input.Column(0);
-            var y = input.Column(1);
-            var z = input.Column(2);
+            //copy x, y, (z) columns
+            for (int i = 0; i < input.ColumnCount; i++)
+            {
+                inputs.SetColumn(i, input.Column(i));
+            }
 
             var bias =V.Dense(input.RowCount, 1.0);
             var biasMatrix = M.Dense(input.RowCount, 1);
             biasMatrix.SetColumn(0, bias);
 
-            inputs.SetColumn(0, x);
-            inputs.SetColumn(1, y);
-            inputs.SetColumn(2, z);
-
-            //inputs.SetColumn(3, bias);
 
             var output = CalculateLayer(0, inputs);
 

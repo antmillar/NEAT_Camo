@@ -3,6 +3,7 @@ using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using TopolEvo.NEAT;
 
@@ -15,14 +16,14 @@ namespace TopolEvo.Fitness
     [Flags]
     public enum Metrics
     {
-        Size = 0,
         Height = 1,
         Depth = 2,
         TopLayer = 4,
         BottomLayer = 8,
         Displacement = 16,
         L1 = 32,
-        L2 = 64
+        L2 = 64,
+        Size = 128
     }
 
     public static class Fitness
@@ -36,23 +37,26 @@ namespace TopolEvo.Fitness
         }
 
 
-
-
         /// <summary> 
         /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
         /// 
+
+             
 
         public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> occupancyTarget, int subdivisions, Metrics metrics)
         {
             //can manually specify a target occupancy using this function
             //var occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
 
+            //convert to binary
+            var occupancy = Fitness.OccupancyFromOutputs(outputs);
+
             var fitnesses = new List<double>();
             var fitnessStrings = new List<string>();
                 
             //loop over each member of the population and calculate fitness components
-            foreach (KeyValuePair<int, Matrix<double> > output in outputs)
+            foreach (KeyValuePair<int, Matrix<double> > output in occupancy)
             {
                 //All Weights are Max 10, Min 0
 
@@ -85,10 +89,9 @@ namespace TopolEvo.Fitness
                     fitnessString += $" | Height : {Math.Round(fitnessHeight, 2)}"; 
                 }
 
-
+                
                 if ((metrics & Metrics.Depth) == Metrics.Depth)
                 {
-                    //Depth
                     var fitnessDepth = 0.0;
 
                     for (int i = 0; i < subdivisions; i++)
@@ -136,7 +139,6 @@ namespace TopolEvo.Fitness
 
                         if (map > 10) map = 10.0;
                         if (map < 0) map = 0.0;
-
 
                         fitnessDisplacement = map / 2.0;
                     }
@@ -221,6 +223,30 @@ namespace TopolEvo.Fitness
             //have a config setting for min max fitnesses
         }
 
+        //greyscale from image
+        internal static Matrix<double> OccupancyFromImage(int subdivisions, Matrix<double> coords, Bitmap bmTarget)
+        {
+            var occupancyTarget = Matrix<double>.Build.Dense(subdivisions * subdivisions, 1, 0.0);
+
+            var width = bmTarget.Width;
+            var height = bmTarget.Height;
+
+            var xStep = width / subdivisions;
+            var yStep = height / subdivisions;
+            var counter = 0;
+
+            for (int y = 0; y < subdivisions; y++)
+            {
+                for (int x = 0; x < subdivisions; x++)
+                {
+                    occupancyTarget[counter, 0] = bmTarget.GetPixel(x * xStep, y * yStep).R / 255.0;
+                    counter++;
+                }
+            }
+
+            return occupancyTarget;
+        }
+
 
         /// <summary>
         /// Find points in voxel grid contained inside the target mesh
@@ -254,13 +280,15 @@ namespace TopolEvo.Fitness
         /// 
         public static Dictionary<int, Matrix<double>> OccupancyFromOutputs(Dictionary<int, Matrix<double>> outputs)
         {
+            var occupancy = new Dictionary<int, Matrix<double>>();
+
             //overwrite continuous values between 0-1 to either 0 or 1
             foreach (int key in outputs.Keys.ToList())
             {
-                outputs[key] = outputs[key].Map(i => i > 0.5 ? 1.0 : 0.0);
+                occupancy[key] = outputs[key].Map(i => i > 0.5 ? 1.0 : 0.0);
             }
 
-            return outputs;
+            return occupancy;
         }
 
 

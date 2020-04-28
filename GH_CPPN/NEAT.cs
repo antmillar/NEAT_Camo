@@ -29,13 +29,16 @@ namespace TopolEvo.NEAT
     /// </summary>
     public class Population
     {
-
+        private int _inputDims;
+            
         //constructor
-        public Population(int size)
+        public Population(int size, int inputDims)
         {
+            _inputDims = inputDims;
+
             for (int i = 0; i < size; i++)
             {
-                Genomes.Add(new Genome());
+                Genomes.Add(new Genome(inputDims));
             }
         }
 
@@ -119,7 +122,7 @@ namespace TopolEvo.NEAT
                 var parent1 = parents[Config.globalRandom.Next(0, parents.Count)];
                 var parent2 = parents[Config.globalRandom.Next(0, parents.Count)];
 
-                var child = new Genome();
+                var child = new Genome(_inputDims);
                 child.CrossOver(parent1, parent2);
 
                 children.Add(child);
