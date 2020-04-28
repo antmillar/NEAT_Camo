@@ -95,9 +95,9 @@ namespace GH_CPPN
             var coords = FEM.PopulateCoords(x ,y, z, 3);
 
 
-            var occupancy = Fitness.CreateOccupancy(x * y * z, 1, coords, inputMesh);
+            var occupancyTarget= Fitness.OccupancyFromMesh(x * y * z, 1, coords, inputMesh);
 
-            var FEMModel = FEM.CreateModel(coords, occupancy, x, y, z);
+            var FEMModel = FEM.CreateModel(coords, occupancyTarget, x, y, z);
 
             var displacements = FEM.GetDisplacements(FEMModel);
             var stresses = FEM.GetStresses(FEMModel);

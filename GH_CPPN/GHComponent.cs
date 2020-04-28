@@ -18,7 +18,6 @@ namespace GH_CPPN
     {
         public GHComponent() : base("Topology Evolver", "TopolEvo", "Evolving CPPNs", "TopologyEvolver", "2D")
         {
-
         }
 
         //fields
@@ -29,13 +28,12 @@ namespace GH_CPPN
         private List<Mesh> femModels;
         private Matrix<double> coords;
         private Dictionary<int, Matrix<double>> outputs;
-        private Mesh targetMesh;
-        private Mesh inputMesh;
-        private int subdivisions = 10;
-        private int popSize = 50;
-        private Matrix<double> occupancy;
-        private Stopwatch timer;
-
+        private Mesh voxelsTarget;
+        private Mesh meshTarget;
+        private int subdivisions = 6;
+        private int popSize = 20;
+        private Matrix<double> occupancyTarget;
+        private Stopwatch perfTimer;
 
         public override Guid ComponentGuid
         {
@@ -48,14 +46,14 @@ namespace GH_CPPN
             //pManager.AddTextParameter("input text", "i", "string to reverse", GH_ParamAccess.item);
             pManager.AddBooleanParameter("toggle generation", "toggle", "run the next generation", GH_ParamAccess.item);
             pManager.AddNumberParameter("survival cutoff", "survival cutoff", "survival cutoff", GH_ParamAccess.item);
-            pManager.AddMeshParameter("input mesh", "inputMesh mesh", "inputMesh mesh", GH_ParamAccess.item);
+            pManager.AddMeshParameter("target mesh", "target mesh", "target mesh", GH_ParamAccess.item);
             pManager.AddIntegerParameter("subdivisions", "subdivisions", "subdivisions", GH_ParamAccess.item);
             pManager.AddIntegerParameter("popSize", "popSize", "popSize", GH_ParamAccess.item);
 
 
             //pManager[0].Optional = true;
             pManager[1].Optional = true;
-            //pManager[2].Optional = true;
+            pManager[2].Optional = true;
             pManager[3].Optional = true;
             pManager[4].Optional = true;
         }
@@ -67,7 +65,7 @@ namespace GH_CPPN
             pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
             pManager.AddNumberParameter("mean fitness", "mean fitness", "means of fitnesses", GH_ParamAccess.item);
             pManager.AddMeshParameter("target mesh", "target", "target meshes", GH_ParamAccess.item);
-            pManager.AddTextParameter("timer", "timer", "timer", GH_ParamAccess.item);
+            pManager.AddTextParameter("perfTimer", "perfTimer", "perfTimer", GH_ParamAccess.item);
             pManager.AddMeshParameter("fems", "fems", "fems", GH_ParamAccess.list);
         }
 
@@ -76,82 +74,89 @@ namespace GH_CPPN
             //defaults
             bool button = false;
             double cutoff = 0.5;
-            inputMesh = new Mesh();
+            meshTarget = new Mesh();
+            bool targetIsShape = false;
             //init = false;
 
             //if (!DA.GetData(0, ref button)) { return; }
             //if (!DA.GetData(1, ref cutoff)) { return; }
 
-
             DA.GetData(0, ref button);
             DA.GetData(1, ref cutoff);
-            if (!DA.GetData(2, ref inputMesh)) { return; }
+            if (DA.GetData(2, ref meshTarget)) { targetIsShape = true; }
             DA.GetData(3, ref subdivisions);
             DA.GetData(4, ref popSize);
 
             //if (button == null) { return; }
             //if (cutoff == null) { return; }
-            //if (inputMesh == null) { return; }
+            //if (meshTarget == null) { return; }
 
             coords = Matrix<double>.Build.Dense(subdivisions * subdivisions * subdivisions, 3);
             coords = PopulateCoords(subdivisions, 3);
 
-            var bbox = inputMesh.GetBoundingBox(true);
-            var box = new Box(bbox);
+            //if there is a target shape, rescale to [-0.5, 0.5]
+            if (targetIsShape)
+            {
+                var bbox = meshTarget.GetBoundingBox(true);
+                var box = new Box(bbox);
 
-            var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
-            inputMesh.Translate(new Vector3d(-box.Center));
-            inputMesh.Scale(1.0 / longestDim);
+                var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
+                meshTarget.Translate(new Vector3d(-box.Center));
+                meshTarget.Scale(1.0 / longestDim);
 
+                occupancyTarget = Fitness.OccupancyFromMesh(subdivisions * subdivisions * subdivisions, 1, coords, meshTarget);
+                var occCount = occupancyTarget.ColumnSums().Sum();
 
-            occupancy = Fitness.CreateOccupancy(subdivisions * subdivisions * subdivisions, 1, coords, inputMesh);
-            var occCount = occupancy.ColumnSums().Sum();
-
-            if(occCount == 0)  AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
+                if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
+            }
 
             if (!init)
             {
+                perfTimer = new Stopwatch();
+                perfTimer.Start();
+
                 init = true;
-
-                timer = new Stopwatch();
-                timer.Start();
-
 
                 //initialise globals
 
                 pop = new Population(popSize);
 
-
                 outputs = new Dictionary<int, Matrix<double>>();
 
                 outputs = pop.Evaluate(coords);
 
-                outputs = Fitness.OutputOccupancy(outputs);
+
+
+                outputs = Fitness.OccupancyFromOutputs(outputs);
+
+
+
+                var metrics = Metrics.Height | Metrics.Depth;
 
                 //var target = Fitness.CreateTarget(width * width * width, 1, coords);
-                fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
+                fits = Fitness.Function(pop, outputs, coords, occupancyTarget, subdivisions, metrics);
 
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
                 femModels = GenerateFEMs(femModels, popSize);
-                timer.Stop();
 
-                targetMesh = GenerateTargetMesh(occupancy, subdivisions);
+
+                if(targetIsShape)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
                 meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
 
-
+                perfTimer.Stop();
             }
 
             //paint mesh using outputs
 
             if (button)
             {
-                timer = new Stopwatch();
-                timer.Start();
+                perfTimer = new Stopwatch();
+                perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
                 Run(1, subdivisions, popSize);
 
-                timer.Stop();
+                perfTimer.Stop();
                 
             }
 
@@ -159,8 +164,8 @@ namespace GH_CPPN
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
            // DA.SetData(2, fits.Average());
-            DA.SetData(3, targetMesh);
-            DA.SetData(4, timer.Elapsed.ToString());
+            DA.SetData(3, voxelsTarget);
+            DA.SetData(4, perfTimer.Elapsed.ToString());
             DA.SetDataList(5, femModels);
         }
 
@@ -173,20 +178,21 @@ namespace GH_CPPN
                 pop.NextGeneration();
 
                 outputs = pop.Evaluate(coords);
-                outputs = Fitness.OutputOccupancy(outputs);
-                fits = Fitness.Function(pop, outputs, coords, occupancy, subdivisions);
+                outputs = Fitness.OccupancyFromOutputs(outputs);
+                var metrics = Metrics.Height | Metrics.Depth;
+                fits = Fitness.Function(pop, outputs, coords, occupancyTarget, subdivisions, metrics);
 
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
                 femModels = GenerateFEMs(femModels, popSize);
             }
 
-            targetMesh = GenerateTargetMesh(occupancy, subdivisions);
+            if (false)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
             meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
 
             return meshes;
         }
 
-        private Mesh GenerateTargetMesh(Matrix<double> target, int subdivisions)
+        private Mesh GenerateVoxelsTarget(Matrix<double> target, int subdivisions)
         {
             var volume = new Volume();
             Mesh mesh = volume.Create(target, subdivisions, -30, 0, 0);

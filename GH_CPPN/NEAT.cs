@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using TopolEvo.Architecture;
 
 namespace TopolEvo.NEAT
@@ -315,7 +314,7 @@ namespace TopolEvo.NEAT
         protected internal double Fitness { get; set; }
 
         public int ID { get; set; }
-        public string FitnessString { get; set; }
+        public string FitnessAsString { get; set; }
         public BriefFiniteElementNet.Model FEMModel { get; set; }
 
         public Genome(int inputNodes = 3 , int hiddenNodes = 8, int outputNodes = 1)

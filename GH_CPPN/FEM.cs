@@ -129,7 +129,6 @@ namespace GH_CPPN
                 if (x < xSize - 1 & nodeIndices.Contains(xNeigh))
                 {
                     var xBar = new BarElement(nodes[index], nodes[xNeigh]) { Label = index.ToString() + ":" + xNeigh.ToString() };
-                    xBar.Behavior = BarElementBehaviours.FullFrame;
                     xBar.Material = mat;
                     xBar.Section = sec;
                     elements.Add(xBar);
@@ -138,7 +137,6 @@ namespace GH_CPPN
                 if (y < ySize - 1 & nodeIndices.Contains(yNeigh))
                 {
                     var yBar = new BarElement(nodes[index], nodes[yNeigh]) { Label = index.ToString() + ":" + yNeigh.ToString() };
-                    yBar.Behavior = BarElementBehaviours.FullFrame;
                     yBar.Material = mat;
                     yBar.Section = sec;
                     elements.Add(yBar);
@@ -147,7 +145,6 @@ namespace GH_CPPN
                 if (z < zSize - 1 & nodeIndices.Contains(zNeigh))
                 {
                     var zBar = new BarElement(nodes[index], nodes[zNeigh]) { Label = index.ToString() + ":" + zNeigh.ToString() };
-                    zBar.Behavior = BarElementBehaviours.FullFrame;
                     zBar.Material = mat;
                     zBar.Section = sec;
                     elements.Add(zBar);
@@ -168,7 +165,7 @@ namespace GH_CPPN
 
 
             //Applying load
-            var force = new Force(0, -0, -5000, 0, 0, 0);
+            var force = new Force(0, -5000, -0, 0, 0, 0);
 
             nodes[topNode].Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
 
