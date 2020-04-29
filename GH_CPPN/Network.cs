@@ -90,14 +90,14 @@ namespace TopolEvo.Architecture
             //find all connections starting from current nodes and their output nodes
             foreach (NEAT.ConnectionGene connectionGene in _genome.Connections)
             {
-                if (currentNodes.Contains(connectionGene._inputNode))
+                if (currentNodes.Contains(connectionGene.InputNode))
                 {
                     currentLayer.Add(connectionGene);
 
                     //add node ID to potential next layer, unless it's a bias connection
-                    if (connectionGene._inputNode != 9999)
+                    if (connectionGene.InputNode != 9999)
                     {
-                        potentialNodes.Add(connectionGene._outputNode);
+                        potentialNodes.Add(connectionGene.OutputNode);
                     }
                 }
             }
@@ -115,7 +115,7 @@ namespace TopolEvo.Architecture
             }
 
             //keep only nodes with inputs from current nodes
-            currentLayer.RemoveAll(x => !nextNodes.Contains(x._outputNode));
+            currentLayer.RemoveAll(x => !nextNodes.Contains(x.OutputNode));
 
 
             //recursively traverse the network
@@ -138,7 +138,7 @@ namespace TopolEvo.Architecture
 
                 foreach (var connection in currentLayer)
                 {
-                    var index = nextNodeList.IndexOf(connection._outputNode);
+                    var index = nextNodeList.IndexOf(connection.OutputNode);
                     layerMatrix[nodeCountList[index], index] = connection.Weight;
                     nodeCountList[index]++;
                 }

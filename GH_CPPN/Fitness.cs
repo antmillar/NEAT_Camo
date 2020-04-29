@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using TopolEvo.NEAT;
 
 namespace TopolEvo.Fitness
@@ -47,21 +48,23 @@ namespace TopolEvo.Fitness
         public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> occupancyTarget, int subdivisions, Metrics metrics)
         {
             //can manually specify a target occupancy using this function
-            //var occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
+            occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
 
             //convert to binary
-            var occupancy = Fitness.OccupancyFromOutputs(outputs);
+            //var occupancy = Fitness.OccupancyFromOutputs(outputs);
+            var occupancy = outputs;
 
             var fitnesses = new List<double>();
             var fitnessStrings = new List<string>();
-                
+
             //loop over each member of the population and calculate fitness components
-            foreach (KeyValuePair<int, Matrix<double> > output in occupancy)
+            Parallel.ForEach(occupancy.Keys, (key) =>
+            //foreach (KeyValuePair<int, Matrix<double> > output in occupancy)
             {
                 //All Weights are Max 10, Min 0
 
-                var outputID = output.Key;
-                var occupancyOutput = output.Value;
+                var outputID = key;
+                var occupancyOutput = occupancy[key];
 
                 var totalFitness = 0.0;
                 var fitnessString = "";
@@ -86,10 +89,10 @@ namespace TopolEvo.Fitness
                     fitnessHeight = Map(fitnessHeight, 0, subdivisions, 0, 10);
 
                     totalFitness += fitnessHeight;
-                    fitnessString += $" | Height : {Math.Round(fitnessHeight, 2)}"; 
+                    fitnessString += $" | Height : {Math.Round(fitnessHeight, 2)}";
                 }
 
-                
+
                 if ((metrics & Metrics.Depth) == Metrics.Depth)
                 {
                     var fitnessDepth = 0.0;
@@ -125,7 +128,7 @@ namespace TopolEvo.Fitness
                     fitnessString += $" | Size : {Math.Round(fitnessSize, 2)}";
                 }
 
-                if((metrics & Metrics.Displacement) == Metrics.Displacement)
+                if ((metrics & Metrics.Displacement) == Metrics.Displacement)
                 {
                     //FEM
                     var fitnessDisplacement = 0.0;
@@ -135,12 +138,12 @@ namespace TopolEvo.Fitness
                         pop.GetGenomeByID(outputID).FEMModel = FEMModel;
                         var displacements = FEM.GetDisplacements(FEMModel);
                         var scaled = displacements.Max(i => Math.Abs(i)) * 10e7;
-                        var map = 10 - Map(scaled, 0.01, 1.00, 0, 10);
+                        var standardised = 10 - Map(scaled, 0.01, 1.00, 0, 10);
 
-                        if (map > 10) map = 10.0;
-                        if (map < 0) map = 0.0;
+                        if (standardised > 10) standardised = 10.0;
+                        if (standardised < 0) standardised = 0.0;
 
-                        fitnessDisplacement = map / 2.0;
+                        fitnessDisplacement = standardised / 2.0;
                     }
                     catch
                     {
@@ -194,6 +197,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L1) == Metrics.L1 & occupancyTarget != null)
                 {
                     var fitnessL1Norm = (occupancyOutput - occupancyTarget).PointwiseAbs().ToRowMajorArray().Sum();
+                    fitnessL1Norm = Map(fitnessL1Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL1Norm;
                     fitnessString += $" | L1Norm : {Math.Round(fitnessL1Norm, 2)}";
 
@@ -203,6 +207,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L2) == Metrics.L2 & occupancyTarget != null)
                 {
                     var fitnessL2Norm = Math.Sqrt((occupancyOutput - occupancyTarget).PointwisePower(2).ToRowMajorArray().Sum());
+                    fitnessL2Norm = Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL2Norm;
                     fitnessString += $" | L2Norm : {Math.Round(fitnessL2Norm, 2)}";
 
@@ -212,8 +217,10 @@ namespace TopolEvo.Fitness
                 pop.GetGenomeByID(outputID).Fitness = totalFitness;
                 pop.GetGenomeByID(outputID).FitnessAsString = fitnessString;
             }
+            );
 
-            pop.SortByFitness();
+
+            SortByFitness(pop);
 
             fitnesses = pop.Genomes.Select(i => i.Fitness).ToList();
 
@@ -221,6 +228,20 @@ namespace TopolEvo.Fitness
 
             return fitnessStrings;
             //have a config setting for min max fitnesses
+        }
+
+        internal static void SortByFitness(Population pop)
+        {
+            if (Config.fitnessTarget == "min")
+            {
+                pop.Genomes = pop.Genomes.OrderBy(x => x.Fitness).ToList();
+            }
+            else if (Config.fitnessTarget == "max")
+            {
+                pop.Genomes = pop.Genomes.OrderByDescending(x => x.Fitness).ToList();
+            }
+
+            //totalFitness = Genomes.Select(x => 1 / x.Fitness).Sum();
         }
 
         //greyscale from image
@@ -302,28 +323,27 @@ namespace TopolEvo.Fitness
             for (int i = 0; i < targets.RowCount; i++)
             {
                 ////equation of circle
-                if (Math.Pow(coords[i, 0], 2) + Math.Pow(coords[i, 1], 2) + Math.Pow(coords[i, 2], 2) < 0.2)
+                if (Math.Sqrt(Math.Pow(coords[i, 0], 2) + Math.Pow(coords[i, 1], 2)) <= 0.3)
                 {
-                    //values[i] = 1.0;
                     targets[i, 0] = 1.0;
                 }
 
                 //vert bar
                 //if (coords[i, 0] < -0.25 || coords[i, 0] > 0.25)
                 //{
-                //    values[i] = 1.0;
+                //    targets[i, 0] = 1.0;
                 //}
 
 
                 //vert partition
                 //if (coords[i, 0] < 0.0)
                 //{
-                //    values[i] = 1.0;
+                //    targets[i, 0] = 1.0;
                 //}
 
                 //all white
 
-                //values[i] = 1.0;
+                //targets[i, 0] = 1.0;
 
             }
 

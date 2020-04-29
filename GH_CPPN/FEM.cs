@@ -95,19 +95,25 @@ namespace GH_CPPN
             int topLevel = zSize - 1; // nodeIndices.Select(i => i / (xSize * ySize)).Max();
             //int topNode = nodeIndices.Max();
             var b = nodeIndices.Where(value => (value / (xSize * ySize) == 5)).Count();
-            if(b == 0)
+
+            int topNode;
+            try
             {
-                var test = "test";
+                topNode = nodeIndices.Where(value => (value / (xSize * ySize) == topLevel)).Max(); //this line fails if can't find something on top row.
             }
-            int topNode = nodeIndices.Where(value => (value / (xSize * ySize) == topLevel)).Max(); //this line fails if can't find something on top row.
-            int fixedCount = 0;
+            catch
+            {
+                return null;
+            }    
+                
+                int fixedCount = 0;
 
             var sec = new BriefFiniteElementNet.Sections.UniformParametric1DSection(a: 0.1, iy: 0.1, iz: 0.1);
             var mat = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(210e9, 0.3);
 
             var elements = new ConcurrentBag<Element>();
 
-            Parallel.For(0, nodeIndices.Count,  i => 
+            Parallel.For(0, nodeIndices.Count, i =>
             {
                 var index = nodeIndices[i];
 
@@ -149,8 +155,8 @@ namespace GH_CPPN
                     zBar.Section = sec;
                     elements.Add(zBar);
                 }
-            }
-            );
+            });
+            
 
             model.Nodes.AddRange(nodes.Values);
             model.Elements.Add(elements.ToArray());
@@ -176,9 +182,10 @@ namespace GH_CPPN
 
         public static List<double> GetDisplacements(Model model)
         {
+
+            if (model is null) return null;
             var displacements = new List<double>();
 
-            if (model is null) return displacements;
 
             foreach (Node node in model.Nodes)
             {

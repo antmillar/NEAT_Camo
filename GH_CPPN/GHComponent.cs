@@ -80,7 +80,7 @@ namespace GH_CPPN
             double cutoff = 0.5;
             meshTarget = new Mesh();
             bool targetIsShape = false;
-            bool targetIsImage = true;
+            bool targetIsImage = false;
 
             //if (!DA.GetData(0, ref button)) { return; }
             //if (!DA.GetData(1, ref cutoff)) { return; }
@@ -99,7 +99,7 @@ namespace GH_CPPN
 
             coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
             coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.L2; //| Metrics.Depth;
+            metrics = Metrics.L2;
 
 
 
@@ -152,7 +152,8 @@ namespace GH_CPPN
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
                 femModels = GenerateFEMs(femModels, popSize);
 
-                if (targetIsImage) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
+                occupancyTarget = Fitness.CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
+                if (true) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
                 if (targetIsShape)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
 
                 meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
@@ -168,7 +169,7 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(1, subdivisions, popSize);
+                Run(50, subdivisions, popSize);
 
                 perfTimer.Stop();
                 
@@ -183,8 +184,6 @@ namespace GH_CPPN
             DA.SetDataList(5, femModels);
 
         }
-
-
 
         private List<Mesh> Run(int generations, int subdivisions, int popSize)
         {

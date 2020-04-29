@@ -32,7 +32,7 @@ namespace TopolEvo.Display
 
                     cell.Faces.AddFace(0, 1, 3, 2);
 
-                    cell.Translate(new Vector3d(xCenter, yCenter, 0.0));
+                    cell.Translate(new Vector3d(xCenter , yCenter, 0.0));
 
                     Meshes.Add(cell);
                 }

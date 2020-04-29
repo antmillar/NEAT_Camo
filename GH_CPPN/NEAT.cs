@@ -3,9 +3,9 @@ using MathNet.Numerics.LinearAlgebra;
 using NumSharp;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using TopolEvo.Architecture;
+using TopolEvo.Utilities;
 
 namespace TopolEvo.NEAT
 {
@@ -15,7 +15,7 @@ namespace TopolEvo.NEAT
     public static class Config
     {
         public const double mutateRate = 0.2;
-        public const string fitnessTarget = "max";
+        public const string fitnessTarget = "min";
         public static double survivalCutoff = 0.5;
         public static double asexualRate = 0.25;
 
@@ -202,20 +202,6 @@ namespace TopolEvo.NEAT
 
         }
 
-        public void SortByFitness()
-        {
-            if (Config.fitnessTarget == "min")
-            {
-                Genomes = Genomes.OrderBy(x => x.Fitness).ToList();
-            }
-            else if (Config.fitnessTarget == "max")
-            {
-                Genomes = Genomes.OrderByDescending(x => x.Fitness).ToList();
-            }
-
-            //totalFitness = Genomes.Select(x => 1 / x.Fitness).Sum();
-        }
-
         public override string ToString()
         {
             return String.Join("\n", Genomes.Select(x => x.ToString()));
@@ -274,22 +260,24 @@ namespace TopolEvo.NEAT
     public class ConnectionGene : Gene
     {
         protected internal double Weight { get; set; }
-        protected internal int _inputNode;
-        protected internal int _outputNode;
+        protected internal int InputNode { get; set; }
+        protected internal int OutputNode { get; set; }
 
         public ConnectionGene(int inputNode, int outputNode)
         {
-            _inputNode = inputNode;
-            _outputNode = outputNode;
+            InputNode = inputNode;
+            OutputNode = outputNode;
+            //initialise weight randomly between [-1.0, 1.0]
 
-            Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
+            Weight = Utils.Gaussian(0.0, 5.0);
+            //Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
         }
 
         //copy constructor
         public ConnectionGene(ConnectionGene parent)
         {
-            _inputNode = parent._inputNode;
-            _outputNode = parent._outputNode;
+            InputNode = parent.InputNode;
+            OutputNode = parent.OutputNode;
 
             Weight = parent.Weight;
         }
@@ -305,7 +293,7 @@ namespace TopolEvo.NEAT
 
         public override string ToString()
         {
-            return $"({_inputNode}, {_outputNode}) w = {Math.Round(Weight, 2)} ";
+            return $"({InputNode}, {OutputNode}) w = {Math.Round(Weight, 2)} ";
         }
     }
 
@@ -320,7 +308,7 @@ namespace TopolEvo.NEAT
         public string FitnessAsString { get; set; }
         public BriefFiniteElementNet.Model FEMModel { get; set; }
 
-        public Genome(int inputNodes = 3 , int hiddenNodes = 8, int outputNodes = 1)
+        public Genome(int inputNodes = 3 , int hiddenNodes = 3, int outputNodes = 1)
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();
@@ -427,9 +415,9 @@ namespace TopolEvo.NEAT
             {
                 foreach(ConnectionGene connection in Connections)
                 {
-                    if(connection._outputNode == nodeGene._id)
+                    if(connection.OutputNode == nodeGene._id)
                     {
-                        nodeGene._inputs.Add(connection._inputNode);
+                        nodeGene._inputs.Add(connection.InputNode);
                     }
                 }
             }
@@ -440,10 +428,19 @@ namespace TopolEvo.NEAT
         {
             foreach(ConnectionGene connection in Connections)
             {
+                //need to clamp weights?
+
                 if (Config.globalRandom.NextDouble() < Config.mutateRate)
                 {
-                    //need to clamp weights?
-                    connection.Weight += (Config.globalRandom.NextDouble() - 0.5) / 2.0;
+                    //90% chance permute, 10% chance create new value
+                    if (Config.globalRandom.NextDouble() < 0.90)
+                        {
+                            connection.Weight += Utils.Gaussian(0.0, 1.25);
+                        }
+                    else
+                        {
+                            connection.Weight = Utils.Gaussian(0.0, 5.0);
+                        }
                 }
             }
         }
