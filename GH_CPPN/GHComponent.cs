@@ -67,7 +67,7 @@ namespace GH_CPPN
             //pManager.AddPointParameter("points", "pts", "grid points", GH_ParamAccess.list);
             pManager.AddMeshParameter("mesh grid", "mg", "grid of meshes", GH_ParamAccess.list);
             pManager.AddTextParameter("fitnesses", "fitnesses", "output of fitnesses", GH_ParamAccess.list);
-            pManager.AddNumberParameter("mean fitness", "mean fitness", "means of fitnesses", GH_ParamAccess.item);
+            pManager.AddTextParameter("topos", "topos", "topos", GH_ParamAccess.list);
             pManager.AddMeshParameter("target mesh", "target", "target meshes", GH_ParamAccess.item);
             pManager.AddTextParameter("perfTimer", "perfTimer", "perfTimer", GH_ParamAccess.item);
             pManager.AddMeshParameter("fems", "fems", "fems", GH_ParamAccess.list);
@@ -169,16 +169,18 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(50, subdivisions, popSize);
+                Run(5, subdivisions, popSize);
 
                 perfTimer.Stop();
-                
+
             }
+
+            var topologies = pop.Genomes.Select(i => i.ToString()).ToList();
 
             //output data from GH component
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
-           // DA.SetData(2, fits.Average());
+            DA.SetDataList(2, topologies);
             DA.SetData(3, voxelsTarget);
             DA.SetData(4, perfTimer.Elapsed.ToString());
             DA.SetDataList(5, femModels);

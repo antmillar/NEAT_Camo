@@ -22,8 +22,11 @@ namespace TopolEvo.Architecture
         int _outputNode;
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
-        public List<List<int>> _layersNodes;
+        public List<List<int>> _layersEndNodes;
         public List<Matrix<double>> _layersMatrices;
+        public List<List<int>> _layersStartNodes;
+        public Dictionary<int, Vector<double>> activations;
+
         public Network(NEAT.Genome genome)
         {
             _inputCount = 0;
@@ -47,9 +50,10 @@ namespace TopolEvo.Architecture
         public void GenerateLayers()
         {
             //use hashset as don't want repeated nodes
-            var currentNodes = new HashSet<int>();
+            var inputNodes = new HashSet<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
-            _layersNodes = new List<List<int>>();
+            _layersEndNodes = new List<List<int>>();
+            _layersStartNodes = new List<List<int>>();
             _layersMatrices = new List<Matrix<double>>(); 
             //initialise the currentNodes with the input nodes
             //keep track of the output node (only one allowed)
@@ -57,7 +61,7 @@ namespace TopolEvo.Architecture
             {
                 if (nodeGene._type == "input")
                 {
-                    currentNodes.Add(nodeGene._id);
+                    inputNodes.Add(nodeGene._id);
                 }
 
                 else if (nodeGene._type == "output")
@@ -68,20 +72,20 @@ namespace TopolEvo.Architecture
             }
 
             //recursively creates new layers
-            var output = MakeLayer(currentNodes);
+            var output = MakeLayer(inputNodes);
 
         }
 
         /// <summary>
         /// 
         /// </summary>
-        public HashSet<int> MakeLayer(HashSet<int> currentNodes)
+        public HashSet<int> MakeLayer(HashSet<int> visitedNodes)
         {
             //could probably cache in here somehow?
 
 
             //add bias to each layer
-            currentNodes.Add(9999);
+            visitedNodes.Add(9999);
 
             var currentLayer = new List<NEAT.ConnectionGene>();
             var potentialNodes = new HashSet<int>();
@@ -90,7 +94,7 @@ namespace TopolEvo.Architecture
             //find all connections starting from current nodes and their output nodes
             foreach (NEAT.ConnectionGene connectionGene in _genome.Connections)
             {
-                if (currentNodes.Contains(connectionGene.InputNode))
+                if (visitedNodes.Contains(connectionGene.InputNode) & !visitedNodes.Contains(connectionGene.OutputNode))
                 {
                     currentLayer.Add(connectionGene);
 
@@ -107,18 +111,20 @@ namespace TopolEvo.Architecture
             {
                 var inputs = _genome.GetNodeByID(id)._inputs;
 
-                //check if all inputs into node are from the current nodes
-                if (currentNodes.Intersect(inputs).Count() == inputs.Count())
+                //ensure all inputs into node are from the current nodes only
+                if (visitedNodes.Intersect(inputs).Count() == inputs.Count())
                 {
                     nextNodes.Add(id);
                 }
             }
 
-            //keep only nodes with inputs from current nodes
+            //for each node, if ANY input is not in the visitedNodes, remove all of the connections to it.
+
+            //keep only connections with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x.OutputNode));
 
 
-            //recursively traverse the network
+            //recursively traverse the network until next nodes is empty
             if (nextNodes.Count == 0)
             {
                 return nextNodes;
@@ -131,7 +137,9 @@ namespace TopolEvo.Architecture
                 //each node can have a variable number of inputs, so matrix will be sparse
                 //for the height of columns will use the number of nodes in previous layer, lazy upper bound
 
-                var layerMatrix = Matrix<double>.Build.Dense(currentNodes.Count, nextNodes.Count, 0);
+                var previousNodes = currentLayer.Select(x => x.InputNode).Distinct().Count();
+
+                var layerMatrix = Matrix<double>.Build.Dense(previousNodes, nextNodes.Count, 0);
 
                 var nextNodeList = nextNodes.ToList();
                 var nodeCountList = new int[nextNodeList.Count];
@@ -143,10 +151,16 @@ namespace TopolEvo.Architecture
                     nodeCountList[index]++;
                 }
 
+                var startNodes = currentLayer.Select(x => x.InputNode).Distinct();
+
                 _layersMatrices.Add(layerMatrix);
                 _layers.Add(currentLayer);
-                _layersNodes.Add(nextNodes.ToList());
-                return MakeLayer(nextNodes);
+                _layersStartNodes.Add(startNodes.ToList());
+                _layersEndNodes.Add(nextNodes.ToList());
+
+                //combine all visited nodes together for next iteration
+                visitedNodes.UnionWith(nextNodes);
+                return MakeLayer(visitedNodes);
             }
         }
 
@@ -156,69 +170,33 @@ namespace TopolEvo.Architecture
         /// </summary>
         /// <param name="input">Set of coordinates</param>
         /// <returns></returns>
-        public Matrix<double> ForwardPass(Matrix<double> input)
+        public Matrix<double> ForwardPass(Matrix<double> inputs)
         {
-            if (_inputCount != input.ColumnCount) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {input.ColumnCount}");
+            if (_inputCount != inputs.ColumnCount) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {inputs.ColumnCount}");
 
-            var V = Vector<double>.Build;
-            var M = Matrix<double>.Build;
-
-            //set up the input layer
-
-            var inputs = M.Dense(input.RowCount, input.ColumnCount, 0);
+            activations = new Dictionary<int, Vector<double>>();
 
             //copy x, y, (z) columns
-            for (int i = 0; i < input.ColumnCount; i++)
+            for (int i = 0; i < inputs.ColumnCount; i++)
             {
-                inputs.SetColumn(i, input.Column(i));
+                activations[i] = inputs.Column(i);
             }
 
-            var bias =V.Dense(input.RowCount, 1.0);
-            var biasMatrix = M.Dense(input.RowCount, 1);
-            biasMatrix.SetColumn(0, bias);
+            var bias = Vector<double>.Build.Dense(inputs.RowCount, 1.0);
 
+            //populate bias
+            activations[9999] = bias;
 
-            var output = CalculateLayer(0, inputs);
+            Matrix<double> layerOutputs = null;
 
+            //loop over layers and calculate activations
+            for (int i = 0; i < _layers.Count; i++)
+            {
+                layerOutputs = CalculateLayer(i, inputs.RowCount);
+            }
 
-            //var inputsWithBias = new Matrix<double>[,] { { inputs, biasMatrix } };
-            //var inputs1 = M.DenseOfMatrixArray(inputsWithBias);
-
-            ////forward propagation
-
-            //var outputs1 = inputs1 * _layersMatrices[0]; //w*x + b
-
-            ////apply activation function to each column
-            //for(int i = 0; i < outputs1.ColumnCount; i++)
-            //{
-            //    var nodenum = _layersNodes[0][i];
-            //    var act = _genome.GetNodeByID(nodenum)._activationType;
-
-            //    var temp = outputs1.Column(i);
-            //    outputs1.Column(i).Map(act, temp, Zeros.Include);
-            //    outputs1.SetColumn(i, temp);
-            //}
-
-
-            ////outputs1.Map(Trig.Tanh, outputs1); //activation
-
-            //var outputs1WithBias = new Matrix<double>[,] { { outputs1, biasMatrix } };
-            //var z1 = M.DenseOfMatrixArray(outputs1WithBias);
-
-            //var outputs2 = z1 * _layersMatrices[1]; //w*x + b
-
-            ////apply activation function to each column
-            //for (int i = 0; i < outputs2.ColumnCount; i++)
-            //{
-            //    var nodenum = _layersNodes[1][i];
-            //    var act = _genome.GetNodeByID(nodenum)._activationType;
-
-            //    var temp = outputs2.Column(i);
-            //    outputs2.Column(i).Map(act, temp, Zeros.Include);
-            //    outputs2.SetColumn(i, temp);
-            //}
-
-            //outputs2.Map(SpecialFunctions.Logistic, outputs2); // activation
+            //last iteration of loop returns the outputs from the final layer
+            var output = layerOutputs;
 
             return output;
 
@@ -291,62 +269,48 @@ namespace TopolEvo.Architecture
 
         }
 
-        private Matrix<double> CalculateLayer(int layerIndex, Matrix<double> inputs)
+        private Matrix<double> CalculateLayer(int layerNum, int rows)
         {
-            var V = Vector<double>.Build;
-            var M = Matrix<double>.Build;
+            Matrix<double> layerOutputs = null;
 
-            //create matrix for bias column
-            var bias = V.Dense(inputs.RowCount, 1.0);
-            var biasMatrix = M.Dense(inputs.RowCount, 1);
-            biasMatrix.SetColumn(0, bias);
+            //get incoming nodes
+            var matrixInputs = Matrix<double>.Build.Dense(rows, _layersStartNodes[layerNum].Count, 0);
 
-            //append to inputs
-            var concat = new Matrix<double>[,] { { inputs, biasMatrix } };
-            var inputsWithBias = M.DenseOfMatrixArray(concat);
-
-            //forward propagation
-
-            var outputs = inputsWithBias * _layersMatrices[layerIndex]; //w*x + b
-
-
-            //apply activation functions
-            Parallel.For(0, outputs.ColumnCount, (i) =>
-             {
-                 var nodenum = _layersNodes[layerIndex][i];
-                 var act = _genome.GetNodeByID(nodenum)._activationType;
-
-                 var temp = outputs.Column(i);
-                 outputs.Column(i).Map(act, temp, Zeros.Include);
-                 outputs.SetColumn(i, temp);
-             });
-
-            //apply activation function to each column non parallel
-            //for (int i = 0; i < outputs.ColumnCount; i++)
-            //{
-            //    var nodenum = _layersNodes[layerIndex][i];
-            //    var act = _genome.GetNodeByID(nodenum)._activationType;
-
-            //    var temp = outputs.Column(i);
-            //    outputs.Column(i).Map(act, temp, Zeros.Include);
-            //    outputs.SetColumn(i, temp);
-            //}
-
-            //when get to last layer, stop iterating
-            if(layerIndex + 1 < _layersMatrices.Count)
+            //create matrix of inputs for the layer
+            for (int j = 0; j < _layersStartNodes[layerNum].Count; j++)
             {
-                return CalculateLayer(layerIndex + 1, outputs);
-            }
-            else
-            {
-                return outputs;
+                int nodeNum = _layersStartNodes[layerNum][j];
+                matrixInputs.SetColumn(j, activations[nodeNum]);
             }
 
+            //layer w*x + b
+            layerOutputs = matrixInputs * _layersMatrices[layerNum];
+
+            //apply activation functions to each column (node)
+
+            Parallel.For(0, layerOutputs.ColumnCount, (j) =>
+            {
+                var nodeNum = _layersEndNodes[layerNum][j];
+                var actType = _genome.GetNodeByID(nodeNum)._activationType;
+
+                var newVals = layerOutputs.Column(j);
+                layerOutputs.Column(j).Map(actType, newVals, Zeros.Include);
+                layerOutputs.SetColumn(j, newVals);
+
+
+            });
+
+            //have to populate dictionary outside the parallel for because not thread safe
+            for (int j = 0; j < layerOutputs.ColumnCount; j++)
+            {
+                var nodeNum = _layersEndNodes[layerNum][j];
+                activations[nodeNum] = layerOutputs.Column(j);
+            }
+
+            return layerOutputs;
         }
 
-        //had to write my own parallel dot product because the one in numsharp is incredibly slow.
-        //https://github.com/SciSharp/NumSharp/issues/201
-        //It's even slower than manually looping over every node and connection!!
+
 
     }
 

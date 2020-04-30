@@ -14,14 +14,20 @@ namespace TopolEvo.NEAT
     /// </summary>
     public static class Config
     {
-        public const double mutateRate = 0.2;
-        public const string fitnessTarget = "min";
-        public static double survivalCutoff = 0.5;
-        public static double asexualRate = 0.25;
+        internal const double mutateConnectionRate = 0.2;
+        internal const string fitnessTarget = "min";
+        internal static double survivalCutoff = 0.5;
+        internal static double asexualRate = 0.25;
+
+        internal static double addNodeRate = 0.03;
+        internal static double addConnectionRate = 0.5; //in higher pop can increase this
+        internal static double permuteOrResetRate = 0.9;
+
 
         //global random singleton
-        public static readonly System.Random globalRandom = new System.Random();
-        public static int genomeID = 0;
+        internal static readonly System.Random globalRandom = new System.Random();
+        internal static int genomeID = 0;
+
     }
 
     /// <summary>
@@ -58,28 +64,12 @@ namespace TopolEvo.NEAT
             var children = new List<Genome>();
             var parents = new List<Genome>();
 
-            //for (int i = 0; i < Genomes.Count; i++)
-            //{
-            //    if(i >= Genomes.Count / 2)
-            //    {
-            //        children.Add(new Genome(Genomes[i - Genomes.Count / 2]));
-            //    }
-            //    else
-            //    {
-            //        children.Add(new Genome(Genomes[i]));
-            //    }
-
-            //}
-
-
             //elitist keep the parents
 
             //for (int i = 0; i <4; i++)
             //{
             //    children.Add(new Genome(Genomes[i]));
             //}
-
-
 
             for (int i = 0; i < Genomes.Count; i++)
             {
@@ -115,14 +105,20 @@ namespace TopolEvo.NEAT
                 //}
             }
 
-            int asexualCount = (int)(Genomes.Count * Config.asexualRate); 
+            int asexualCount = (int)(Genomes.Count * Config.asexualRate);
+
             //pick random parents and cross them to get child
             for (int i = 0; i < (Genomes.Count - asexualCount); i++)
             {
                 var parent1 = parents[Config.globalRandom.Next(0, parents.Count)];
                 var parent2 = parents[Config.globalRandom.Next(0, parents.Count)];
 
-                var child = new Genome(_inputDims);
+                var parentFittest = parent1.Fitness >= parent2.Fitness ? parent1 : parent2;
+
+                //create child topology from fitter parent
+                var child = new Genome(parentFittest);
+
+                //randomly crossover any shared connections
                 child.CrossOver(parent1, parent2);
 
                 children.Add(child);
@@ -167,6 +163,13 @@ namespace TopolEvo.NEAT
             foreach (var child in children)
             {
                 child.Mutate();
+
+                var r = Config.globalRandom.NextDouble();
+
+                if (r < Config.addConnectionRate)
+                {
+                    child.MutateAddConnection();
+                }
             }
 
             Genomes = children;
@@ -263,11 +266,12 @@ namespace TopolEvo.NEAT
         protected internal int InputNode { get; set; }
         protected internal int OutputNode { get; set; }
 
+
+
         public ConnectionGene(int inputNode, int outputNode)
         {
             InputNode = inputNode;
             OutputNode = outputNode;
-            //initialise weight randomly between [-1.0, 1.0]
 
             Weight = Utils.Gaussian(0.0, 5.0);
             //Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
@@ -291,10 +295,24 @@ namespace TopolEvo.NEAT
 
         }
 
+        public override bool Equals(object obj)
+        {
+            var other = obj as ConnectionGene;
+
+            if (other == null)
+                return false;
+
+            if (InputNode == other.InputNode & OutputNode == other.OutputNode)
+                return true;
+            else
+                return false;
+        }
+
         public override string ToString()
         {
             return $"({InputNode}, {OutputNode}) w = {Math.Round(Weight, 2)} ";
         }
+
     }
 
 
@@ -303,7 +321,6 @@ namespace TopolEvo.NEAT
         public List<NodeGene> Nodes { get; set; }
         public List<ConnectionGene> Connections { get; set; }
         protected internal double Fitness { get; set; }
-
         public int ID { get; set; }
         public string FitnessAsString { get; set; }
         public BriefFiniteElementNet.Model FEMModel { get; set; }
@@ -353,35 +370,7 @@ namespace TopolEvo.NEAT
                 nodeCount++;
             }
 
-            //Nodes.Add(new NodeGene(0, "input"));
-            //Nodes.Add(new NodeGene(1, "input"));
-            //Nodes.Add(new NodeGene(2, "hidden"));
-            //Nodes.Add(new NodeGene(3, "hidden"));
-            //Nodes.Add(new NodeGene(4, "hidden"));
-            ////Nodes.Add(new NodeGene(5, "hidden"));
-            //Nodes.Add(new NodeGene(6, "output", "sigmoid"));
-
             Nodes.Add(new NodeGene(9999, "bias"));
-
-            //Connections.Add(new ConnectionGene(0, 2));
-            //Connections.Add(new ConnectionGene(0, 3));
-            //Connections.Add(new ConnectionGene(0, 4));
-            ////Connections.Add(new ConnectionGene(0, 5));
-
-            //Connections.Add(new ConnectionGene(1, 2));
-            //Connections.Add(new ConnectionGene(1, 3));
-            //Connections.Add(new ConnectionGene(1, 4));
-            ////Connections.Add(new ConnectionGene(1, 5));
-
-            //Connections.Add(new ConnectionGene(2, 6));
-            //Connections.Add(new ConnectionGene(3, 6));
-            //Connections.Add(new ConnectionGene(4, 6));
-            //Connections.Add(new ConnectionGene(5, 6));
-
-            //add bias connections for every non input node
-            //Connections.Add(new ConnectionGene(9999, 2));
-            //Connections.Add(new ConnectionGene(9999, 3));
-            //Connections.Add(new ConnectionGene(9999, 6));
 
             CalculateInputs();
         }
@@ -430,10 +419,10 @@ namespace TopolEvo.NEAT
             {
                 //need to clamp weights?
 
-                if (Config.globalRandom.NextDouble() < Config.mutateRate)
+                if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
                 {
                     //90% chance permute, 10% chance create new value
-                    if (Config.globalRandom.NextDouble() < 0.90)
+                    if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
                         {
                             connection.Weight += Utils.Gaussian(0.0, 1.25);
                         }
@@ -446,15 +435,73 @@ namespace TopolEvo.NEAT
         }
 
         /// <summary>
-        /// Crossover weights randomly between matching connections.
+        /// Adds a new connection provided the random selection fulfills criteria below
         /// </summary>
-        /// <param name="other"></param>
+        public void MutateAddConnection()
+        {
+            
+            var rand1 = Config.globalRandom.Next(0, Nodes.Count);
+            var startNode = Nodes[rand1];
+            var rand2 = Config.globalRandom.Next(0, Nodes.Count);
+            var endNode = Nodes[rand2];
+
+            //order by ascending
+            if(startNode._id > endNode._id)
+            {
+                var temp = endNode;
+                endNode = startNode;
+                startNode = temp;
+            }
+
+            //cancel if same node or if connected to a bias
+            if (startNode == endNode | startNode._id == 9999 | endNode._id == 9999)
+            {
+            }
+            //not allowed to connect output into the inputs
+            else if (GetNodeByID(endNode._id)._type == "input")
+            {
+
+            }
+            //not allowed to connect output as an input
+            else if (GetNodeByID(startNode._id)._type == "output")
+            {
+
+            }
+            else
+            {
+                //prevent repeated connections
+                var newConnection = new ConnectionGene(startNode._id, endNode._id);
+
+                bool unique = !Connections.Contains(newConnection);
+
+                //no repeated nodes
+                if (unique)
+                {
+                    Connections.Add(newConnection);
+                }
+
+            }
+        }
+
+
+        /// <summary>
+        /// Crossover weights randomly between parents to create a new child genome. 
+        /// If the topologies don't match take the weight from the fitter parent.
+        /// </summary>
         public void CrossOver(Genome parent1, Genome parent2)
         {
-            //apply random crossover for each gene
+
+            var parentWeaker = parent1.Fitness < parent2.Fitness ? parent1 : parent2;
+
             for (int i = 0; i < Connections.Count; i++)
             {
-                Connections[i].CrossOver(parent1.Connections[i], parent2.Connections[i]);
+                //if connection present in both choose random otherwise just keep fitter parents
+                if (parentWeaker.Connections.Contains(Connections[i]))
+                {
+                    int index = parentWeaker.Connections.FindIndex(a => a.Equals(Connections[i]));
+
+                    Connections[i].CrossOver(Connections[i], parentWeaker.Connections[index]);
+                }
             }
 
             ////alternative single crossover point based approach
