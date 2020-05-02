@@ -1,18 +1,17 @@
 ﻿using Grasshopper.Kernel;
 using MathNet.Numerics.LinearAlgebra;
-using NumSharp;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.IO;
 using System.Linq;
-using TopolEvo.Architecture;
-using TopolEvo.Display;
-using TopolEvo.Fitness;
+
 //custom libraries
 using TopolEvo.NEAT;
+using TopolEvo.Speciation;
+using TopolEvo.Display;
+using TopolEvo.Fitness;
 
 namespace GH_CPPN
 {
@@ -38,6 +37,7 @@ namespace GH_CPPN
         private int popSize = 20;
         private Matrix<double> occupancyTarget = null;
         private Stopwatch perfTimer;
+        private Speciator speciator = new Speciator();
         public override Guid ComponentGuid
         {
             // Don't copy this GUID, make a new one
@@ -150,13 +150,13 @@ namespace GH_CPPN
                 fits = Fitness.Function(pop, outputs, coords, occupancyTarget, subdivisions, metrics);
 
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
-                femModels = GenerateFEMs(femModels, popSize);
+                femModels = GenerateFEMs(femModels, pop.Genomes.Count);
 
                 //occupancyTarget = Fitness.CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
                 if (true) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
                 if (targetIsShape)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
 
-                meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
+                meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 
                 perfTimer.Stop();
             }
@@ -169,7 +169,7 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(100, subdivisions, popSize);
+                Run(10, subdivisions, popSize);
 
                 perfTimer.Stop();
 
@@ -184,27 +184,28 @@ namespace GH_CPPN
             DA.SetData(3, voxelsTarget);
             DA.SetData(4, perfTimer.Elapsed.ToString());
             DA.SetDataList(5, femModels);
-
         }
 
         private List<Mesh> Run(int generations, int subdivisions, int popSize)
         {
             for (int i = 0; i < generations; i++)
             {
-                pop.NextGeneration();
+                var speciesList = speciator.GenerateSpecies(pop);
+                pop.NextGen(speciesList);
+                //pop.NextGeneration();
 
                 outputs = pop.Evaluate(coords);
 
                 fits = Fitness.Function(pop, outputs, coords, occupancyTarget, subdivisions, metrics);
 
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
-                femModels = GenerateFEMs(femModels, popSize);
+                femModels = GenerateFEMs(femModels, pop.Genomes.Count);
             }
 
             if (false)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
             if (false) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
 
-            meshes = GenerateMeshes(pop, outputs, subdivisions, popSize);
+            meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 
             return meshes;
         }

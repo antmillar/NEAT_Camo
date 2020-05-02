@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
-using Grasshopper.Kernel;
-using MathNet.Numerics.LinearAlgebra;
+﻿using Grasshopper.Kernel;
 using Rhino.Geometry;
+using System;
+using System.Diagnostics;
+using System.Linq;
 using TopolEvo.Fitness;
 
 // In order to load the result of this wizard, you will also need to

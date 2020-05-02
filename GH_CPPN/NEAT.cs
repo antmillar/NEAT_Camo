@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using TopolEvo.Architecture;
+using TopolEvo.Speciation;
 using TopolEvo.Utilities;
 
 namespace TopolEvo.NEAT
@@ -14,9 +15,9 @@ namespace TopolEvo.NEAT
     /// </summary>
     public static class Config
     {
-        internal const double mutateConnectionRate = 0.5;
+        internal const double mutateConnectionRate = 0.8;
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 1.0;
+        internal static double survivalCutoff = 0.5;
         internal static double asexualRate = 0.25;
 
         internal static double addNodeRate = 0.02;
@@ -28,6 +29,7 @@ namespace TopolEvo.NEAT
         //global random singleton
         internal static readonly System.Random globalRandom = new System.Random();
         internal static int genomeID = 0;
+        internal static int speciesID = 0;
         internal static int newNodeCounter = 100;
     }
 
@@ -58,59 +60,68 @@ namespace TopolEvo.NEAT
  
         //methods
         //currently has to be run after the fitnesses are calculated
-        public void NextGeneration()
+        public void NextGen(List<Species> speciesList)
         {
+
+            var popSize = Genomes.Count;
+            Genomes.Clear();
+
+            var totalFitness = speciesList.Sum(x => x.Fitness);
+            var remainder = popSize;
+            var count = speciesList.Count;
+
+            foreach(var species in speciesList)
+            {
+                var proportion = species.Fitness / totalFitness * popSize;
+
+                var decimalPart = proportion - Math.Truncate(proportion);
+
+                //ensures the total adds up at the end
+                int numChildren = decimalPart < 0.5 ? (int) Math.Floor(proportion) : (int) Math.Ceiling(proportion);
+
+
+                if(count == 1)
+                {
+                    numChildren = remainder;
+                }
+
+                remainder -= numChildren;
+                NextGeneration(species, numChildren);
+
+                count--;
+            }
+        }
+
+        public void NextGeneration(Species species, int numChildren)
+        {
+            if (numChildren == 0) return; //hacky....
 
             //replace old list with new one
             var children = new List<Genome>();
             var parents = new List<Genome>();
 
-            //elitist keep the parents
 
-            //for (int i = 0; i <4; i++)
-            //{
-            //    children.Add(new Genome(Genomes[i]));
-            //}
+            int parentCount = (int)(species.Genomes.Count * Config.survivalCutoff);
+            //ensure at least one parent
+            parentCount = Math.Max(parentCount, 1);
 
             //only add a proportion of the population to parent pool based on survival cutoff
-            for (int i = 0; i < Genomes.Count; i++)
+            for (int i = 0; i < parentCount; i++)
             {
-                int parentCount = (int)(Genomes.Count * Config.survivalCutoff);
-
-                //ensure at least two parents
-                parentCount = Math.Max(parentCount, 2);
-
-                //add sorted genome to the parent pool up to cutoff percentage
-                for (int j = 0; i < parentCount; i++)
-                {
-                    parents.Add(Genomes[i]);
-                }
-
-                ////adds genomes to parents using a fitness proportional approach
-
-                //var runningtotal = 0.0;
-                //var lotteryBall = Config.globalRandom.NextDouble();
-
-                //foreach (var genome in Genomes)
-                //{
-
-                //    //using 1 / fit, because minimising
-                //    runningtotal += (1 / genome.Fitness);
-                //    var proportion = runningtotal / totalFitness;
-
-                //    //loop until we find the proportional selection
-                //    if (lotteryBall < proportion)
-                //    {
-                //        parents.Add(genome);
-                //        break;
-                //    }
-                //}
+                parents.Add(species.Genomes[i]);
             }
 
-            int asexualCount = (int)(Genomes.Count * Config.asexualRate);
+            int asexualCount = (int)(numChildren * Config.asexualRate);
+
+            if (parentCount == 1)
+            {
+                asexualCount = numChildren;
+            }
+
+
 
             //pick random parents and cross them to get child
-            for (int i = 0; i < (Genomes.Count - asexualCount); i++)
+            for (int i = 0; i < (numChildren - asexualCount); i++)
             {
                 var parent1 = parents[Config.globalRandom.Next(0, parents.Count)];
                 var parent2 = parents[Config.globalRandom.Next(0, parents.Count)];
@@ -126,6 +137,8 @@ namespace TopolEvo.NEAT
                 children.Add(child);
             }
 
+
+
             //asexual reproduction
             for (int i = 0; i < asexualCount; i++)
             {
@@ -135,31 +148,6 @@ namespace TopolEvo.NEAT
             }
 
 
-            ////loop over parent 1s
-            //foreach (var parent1 in parents)
-            //{
-            //    var runningtotal = 0.0;
-            //    var lotteryBall = Config.globalRandom.NextDouble();
-
-            //    foreach (var parent2 in Genomes)
-            //    {
-            //        //using 1 / fit, because minimising
-            //        runningtotal += (1 / parent2.Fitness);
-            //        var proportion = runningtotal / totalFitness;
-
-            //        //loop until we find the proportional selection
-            //        if (lotteryBall < proportion)
-            //        {
-
-            //            var child = new Genome();
-            //            child.CrossOver(parent1, parent2);
-
-            //            children.Add(child);
-
-            //            break;
-            //        }
-            //    }
-            //}
 
             //mutate all the children genomes
             foreach (var child in children)
@@ -183,7 +171,15 @@ namespace TopolEvo.NEAT
                 }
             }
 
-            Genomes = children;
+            //elitism
+            //if species size > 5, random overwrite a child with the champion of previous round
+            if (species.Genomes.Count > 5)
+            {
+                children[Config.globalRandom.Next(0, children.Count)] = parents[0];
+            }
+
+            species.Genomes = children;
+            Genomes.AddRange(children);
         }
 
         //evaluates the current set of genomes
@@ -440,6 +436,7 @@ namespace TopolEvo.NEAT
                 {
                     dist += 1.0;
                 }
+
                 //could add weight distance in here too
                 //could add check to see if they are both enabled
             }
@@ -589,7 +586,11 @@ namespace TopolEvo.NEAT
             var existingBiasConnection = Connections.Single(x => x.InputNode == 9999 & x.OutputNode == existingConnection.OutputNode);
 
             var newNodeIndex = Config.newNodeCounter++;
-            var newNode = new NodeGene(newNodeIndex, "hidden", "sin");
+
+            var choices = new List<string>() { "sin", "tanh", "sigmoid" };
+            var pick = choices[Config.globalRandom.Next(0, choices.Count)];
+
+            var newNode = new NodeGene(newNodeIndex, "hidden", pick);
 
             //new connection in has weight 1
             var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id, 1.0);
