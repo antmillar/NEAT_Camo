@@ -48,7 +48,7 @@ namespace TopolEvo.Fitness
         public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> occupancyTarget, int subdivisions, Metrics metrics)
         {
             //can manually specify a target occupancy using this function
-            occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
+            //occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
 
             //convert to binary
             //var occupancy = Fitness.OccupancyFromOutputs(outputs);

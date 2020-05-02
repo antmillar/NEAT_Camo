@@ -365,6 +365,11 @@ namespace TopolEvo.Architecture
             return Trig.Tanh;
         }
 
+        public static Func<double, double> Sin()
+        {
+            return Trig.Sin;
+        }
+
     }
 
     public class Sigmoid : IActivation

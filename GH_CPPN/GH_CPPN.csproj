@@ -77,6 +77,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Species.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="FEM.cs" />
     <Compile Include="Fitness.cs" />

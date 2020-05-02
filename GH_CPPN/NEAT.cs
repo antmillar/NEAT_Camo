@@ -14,14 +14,15 @@ namespace TopolEvo.NEAT
     /// </summary>
     public static class Config
     {
-        internal const double mutateConnectionRate = 0.2;
+        internal const double mutateConnectionRate = 0.5;
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 0.5;
+        internal static double survivalCutoff = 1.0;
         internal static double asexualRate = 0.25;
 
-        internal static double addNodeRate = 0.00;
-        internal static double addConnectionRate = 0.00; //in higher pop can increase this
+        internal static double addNodeRate = 0.02;
+        internal static double addConnectionRate = 0.02; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
+        internal static double reEnableConnectionRate = 0.05;
 
 
         //global random singleton
@@ -71,6 +72,7 @@ namespace TopolEvo.NEAT
             //    children.Add(new Genome(Genomes[i]));
             //}
 
+            //only add a proportion of the population to parent pool based on survival cutoff
             for (int i = 0; i < Genomes.Count; i++)
             {
                 int parentCount = (int)(Genomes.Count * Config.survivalCutoff);
@@ -162,19 +164,20 @@ namespace TopolEvo.NEAT
             //mutate all the children genomes
             foreach (var child in children)
             {
-                //mutate connection weights
-                child.Mutate();
+                //mutate individual connection weights
+                child.MutateConnectionWeights();
 
                 //mutate add new connection
-                var r = Config.globalRandom.NextDouble();
+                var r1 = Config.globalRandom.NextDouble();
 
-                if (r < Config.addConnectionRate)
+                if (r1 < Config.addConnectionRate)
                 {
                     child.MutateAddConnection();
                 }
 
+                var r2 = Config.globalRandom.NextDouble();
 
-                if (r < Config.addNodeRate)
+                if (r2 < Config.addNodeRate)
                 {
                     child.MutateAddNode();
                 }
@@ -248,7 +251,11 @@ namespace TopolEvo.NEAT
             else if (activationType == "sigmoid")
             {
                 _activationType = Activation.Sigmoid();
-            }  
+            }
+            else if (activationType == "sin")
+            {
+                _activationType = Activation.Sin();
+            }
         }
 
         //copy constructor
@@ -278,14 +285,21 @@ namespace TopolEvo.NEAT
         protected internal double Weight { get; set; }
         protected internal int InputNode { get; set; }
         protected internal int OutputNode { get; set; }
+        protected internal bool Enabled { get; set; } = true;
 
-        public ConnectionGene(int inputNode, int outputNode)
+        public ConnectionGene(int inputNode, int outputNode, double defaultWeight = double.NaN)
         {
             InputNode = inputNode;
             OutputNode = outputNode;
 
-            Weight = Utils.Gaussian(0.0, 5.0);
-            //Weight = Config.globalRandom.NextDouble() * 2 - 1.0;
+            if (double.IsNaN(defaultWeight))
+            {
+                Weight = Utils.Gaussian(0.0, 5.0);
+            }
+            else
+            {
+                Weight = defaultWeight;
+            }
         }
 
         //copy constructor
@@ -293,6 +307,7 @@ namespace TopolEvo.NEAT
         {
             InputNode = parent.InputNode;
             OutputNode = parent.OutputNode;
+            Enabled = parent.Enabled;
 
             Weight = parent.Weight;
         }
@@ -391,6 +406,7 @@ namespace TopolEvo.NEAT
             Connections = new List<ConnectionGene>();
             Fitness = parent.Fitness;
             ID = Config.genomeID++;
+            
 
             foreach (var node in parent.Nodes)
             {
@@ -412,6 +428,27 @@ namespace TopolEvo.NEAT
 
         public NodeGene GetNodeByID(int id) => Nodes.Single(x => x._id == id);
         
+        //measures the 'distance' between genomes for use in speciation
+        public double Distance(Genome other)
+        {
+            var dist = 0.0;
+            var longerGenome = this.Connections.Count > other.Connections.Count ? this : other;
+
+            foreach(var conn in longerGenome.Connections)
+            {
+                if (!other.Connections.Contains(conn))
+                {
+                    dist += 1.0;
+                }
+                //could add weight distance in here too
+                //could add check to see if they are both enabled
+            }
+
+            //normalize
+            dist /= longerGenome.Connections.Count;
+
+            return dist;
+        }
 
         //populate the list of input node ids into each node
         private void CalculateInputs()
@@ -432,11 +469,24 @@ namespace TopolEvo.NEAT
         }
 
         //mutates just the connection genes currently
-        public void Mutate()
+        public void MutateConnectionWeights()
         {
             foreach(ConnectionGene connection in Connections)
             {
                 //need to clamp weights?
+
+                //if connection disabled re-enable with probability, else keeps the weight fixed at 0.0 until enabled.
+                if (connection.Enabled == false)
+                {
+                    if (Config.globalRandom.NextDouble() < Config.reEnableConnectionRate)
+                    {
+                        connection.Enabled = true;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
 
                 if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
                 {
@@ -464,14 +514,6 @@ namespace TopolEvo.NEAT
             var rand2 = Config.globalRandom.Next(0, Nodes.Count);
             var endNode = Nodes[rand2];
 
-            //order by ascending
-            if(startNode._id > endNode._id)
-            {
-                var temp = endNode;
-                endNode = startNode;
-                startNode = temp;
-            }
-
             //cancel if same node or if connected to a bias
             if (startNode == endNode | startNode._id == 9999 | endNode._id == 9999)
             {
@@ -488,19 +530,53 @@ namespace TopolEvo.NEAT
             }
             else
             {
-                //prevent repeated connections
+                //prevent repeated and recursive connections
                 var newConnection = new ConnectionGene(startNode._id, endNode._id);
+                var newConnectionReverse = new ConnectionGene(endNode._id, startNode._id);
 
-                bool unique = !Connections.Contains(newConnection);
+                bool unique = !Connections.Contains(newConnection) & !Connections.Contains(newConnectionReverse);
 
                 //no repeated nodes
-                if (unique)
+                if (unique & CheckForLoops(newConnection))
                 {
                     Connections.Add(newConnection);
                     CalculateInputs();
                 }
 
             }
+        }
+
+        //checks if adding a connection would create a loop/cycle in the network
+        //algo ported from https://github.com/CodeReclaimers/neat-python/blob/c2b79c88667a1798bfe33c00dd8e251ef8be41fa/neat/graphs.py
+        public bool CheckForLoops(ConnectionGene newConnection)
+        {
+            var inNode = newConnection.InputNode;
+
+            var visitedNodes = new HashSet<int>() { inNode };
+
+            while (true)
+            {
+                var newNodesTraversed = 0;
+
+                foreach (var conn in Connections)
+                {
+                    if (visitedNodes.Contains(conn.InputNode) & !visitedNodes.Contains(conn.OutputNode))
+                    {
+                        //if we find our way back to the start point we have a loop
+                        if (conn.OutputNode == inNode)
+                        {
+                            return true;
+                        }
+
+                        visitedNodes.Add(conn.OutputNode);
+                        newNodesTraversed += 1;
+                    }
+
+                    //if no new nodes have been traversed we've not added any loops
+                    if (newNodesTraversed == 0) return false;
+                }
+            }
+            
         }
 
         public void MutateAddNode()
@@ -510,17 +586,25 @@ namespace TopolEvo.NEAT
             var existingConnection = Connections[choice];
             if(existingConnection.InputNode == 9999) { return; }
 
-            var newNodeIndex = Config.newNodeCounter++;
-            var newNode = new NodeGene(newNodeIndex, "hidden");
+            var existingBiasConnection = Connections.Single(x => x.InputNode == 9999 & x.OutputNode == existingConnection.OutputNode);
 
-            var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id);
-            var newConnectionOut = new ConnectionGene(newNode._id, existingConnection.OutputNode);
-            var newConnectionBias = new ConnectionGene(9999, newNode._id);
+            var newNodeIndex = Config.newNodeCounter++;
+            var newNode = new NodeGene(newNodeIndex, "hidden", "sin");
+
+            //new connection in has weight 1
+            var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id, 1.0);
+
+            //new connection out has weight equal to old connection
+            var newConnectionOut = new ConnectionGene(newNode._id, existingConnection.OutputNode, existingConnection.Weight);
+            var newConnectionBias = new ConnectionGene(9999, newNode._id, 1.0);
 
             Nodes.Add(newNode);
             Connections.Add(newConnectionIn);
             Connections.Add(newConnectionOut);
             Connections.Add(newConnectionBias);
+
+            existingConnection.Enabled = false;
+            existingConnection.Weight = 0.0;
 
             CalculateInputs();
         }
