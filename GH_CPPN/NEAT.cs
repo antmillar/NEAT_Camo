@@ -19,15 +19,15 @@ namespace TopolEvo.NEAT
         internal static double survivalCutoff = 0.5;
         internal static double asexualRate = 0.25;
 
-        internal static double addNodeRate = 0.03;
-        internal static double addConnectionRate = 0.5; //in higher pop can increase this
+        internal static double addNodeRate = 0.00;
+        internal static double addConnectionRate = 0.00; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
 
 
         //global random singleton
         internal static readonly System.Random globalRandom = new System.Random();
         internal static int genomeID = 0;
-
+        internal static int newNodeCounter = 100;
     }
 
     /// <summary>
@@ -116,7 +116,7 @@ namespace TopolEvo.NEAT
                 var parentFittest = parent1.Fitness >= parent2.Fitness ? parent1 : parent2;
 
                 //create child topology from fitter parent
-                var child = new Genome(parentFittest);
+                var child = parentFittest.Clone();
 
                 //randomly crossover any shared connections
                 child.CrossOver(parent1, parent2);
@@ -129,7 +129,7 @@ namespace TopolEvo.NEAT
             {
                 var parent1 = parents[Config.globalRandom.Next(0, parents.Count)];
 
-                children.Add(new Genome(parent1));
+                children.Add(parent1.Clone());
             }
 
 
@@ -162,13 +162,21 @@ namespace TopolEvo.NEAT
             //mutate all the children genomes
             foreach (var child in children)
             {
+                //mutate connection weights
                 child.Mutate();
 
+                //mutate add new connection
                 var r = Config.globalRandom.NextDouble();
 
                 if (r < Config.addConnectionRate)
                 {
                     child.MutateAddConnection();
+                }
+
+
+                if (r < Config.addNodeRate)
+                {
+                    child.MutateAddNode();
                 }
             }
 
@@ -202,7 +210,6 @@ namespace TopolEvo.NEAT
             }
 
             return Outputs;
-
         }
 
         public override string ToString()
@@ -249,7 +256,13 @@ namespace TopolEvo.NEAT
         {
             _id =  parent._id;
             _type = parent._type;
-            _inputs = parent._inputs;
+            _inputs = new List<int>();
+
+            foreach(int i in parent._inputs)
+            {
+                _inputs.Add(i);
+            }
+
             _activationType = parent._activationType;
 
         }
@@ -265,8 +278,6 @@ namespace TopolEvo.NEAT
         protected internal double Weight { get; set; }
         protected internal int InputNode { get; set; }
         protected internal int OutputNode { get; set; }
-
-
 
         public ConnectionGene(int inputNode, int outputNode)
         {
@@ -292,7 +303,6 @@ namespace TopolEvo.NEAT
 
             var test = Config.globalRandom.NextDouble();
             Weight = test > 0.5 ? parent1.Weight : parent2.Weight;
-
         }
 
         public override bool Equals(object obj)
@@ -312,7 +322,6 @@ namespace TopolEvo.NEAT
         {
             return $"({InputNode}, {OutputNode}) w = {Math.Round(Weight, 2)} ";
         }
-
     }
 
 
@@ -394,6 +403,13 @@ namespace TopolEvo.NEAT
             }
         }
 
+        //deep clone of the genome
+        public Genome Clone()
+        {
+            //uses the copy constructor to make deep copy
+            return new Genome(this);
+        }
+
         public NodeGene GetNodeByID(int id) => Nodes.Single(x => x._id == id);
         
 
@@ -406,7 +422,10 @@ namespace TopolEvo.NEAT
                 {
                     if(connection.OutputNode == nodeGene._id)
                     {
-                        nodeGene._inputs.Add(connection.InputNode);
+                        if(!nodeGene._inputs.Contains(connection.InputNode))
+                        {
+                            nodeGene._inputs.Add(connection.InputNode);
+                        }
                     }
                 }
             }
@@ -478,9 +497,32 @@ namespace TopolEvo.NEAT
                 if (unique)
                 {
                     Connections.Add(newConnection);
+                    CalculateInputs();
                 }
 
             }
+        }
+
+        public void MutateAddNode()
+        {
+            var choice = Config.globalRandom.Next(0, Connections.Count);
+
+            var existingConnection = Connections[choice];
+            if(existingConnection.InputNode == 9999) { return; }
+
+            var newNodeIndex = Config.newNodeCounter++;
+            var newNode = new NodeGene(newNodeIndex, "hidden");
+
+            var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id);
+            var newConnectionOut = new ConnectionGene(newNode._id, existingConnection.OutputNode);
+            var newConnectionBias = new ConnectionGene(9999, newNode._id);
+
+            Nodes.Add(newNode);
+            Connections.Add(newConnectionIn);
+            Connections.Add(newConnectionOut);
+            Connections.Add(newConnectionBias);
+
+            CalculateInputs();
         }
 
 
@@ -520,6 +562,7 @@ namespace TopolEvo.NEAT
 
             return s;
         }
+
 
     }
     

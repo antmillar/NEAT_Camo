@@ -169,7 +169,7 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(5, subdivisions, popSize);
+                Run(1, subdivisions, popSize);
 
                 perfTimer.Stop();
 

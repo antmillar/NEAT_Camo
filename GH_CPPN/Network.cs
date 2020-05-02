@@ -83,7 +83,6 @@ namespace TopolEvo.Architecture
         {
             //could probably cache in here somehow?
 
-
             //add bias to each layer
             visitedNodes.Add(9999);
 
@@ -197,6 +196,11 @@ namespace TopolEvo.Architecture
 
             //last iteration of loop returns the outputs from the final layer
             var output = layerOutputs;
+
+            if(output.ColumnCount == 2)
+            {
+                var test = "asd";
+            }
 
             return output;
 
