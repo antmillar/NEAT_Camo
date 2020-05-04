@@ -100,7 +100,7 @@ namespace GH_CPPN
 
             coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
             coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.L1;
+            metrics = Metrics.Size; // | Metrics.Size;
 
 
 
@@ -154,7 +154,7 @@ namespace GH_CPPN
                 femModels = GenerateFEMs(femModels, pop.Genomes.Count);
 
                 //occupancyTarget = Fitness.CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
-                if (true) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
+                if (targetIsImage) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
                 if (targetIsShape)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
 
                 meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
@@ -170,7 +170,7 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(2000  , subdivisions, popSize);
+                Run(100  , subdivisions, popSize);
 
                 perfTimer.Stop();
 
@@ -204,8 +204,6 @@ namespace GH_CPPN
                 femModels = GenerateFEMs(femModels, pop.Genomes.Count);
             }
 
-            if (false)  voxelsTarget = GenerateVoxelsTarget(occupancyTarget, subdivisions);
-            if (false) voxelsTarget = GenerateImageTarget(occupancyTarget, subdivisions);
 
             meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 

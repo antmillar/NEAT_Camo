@@ -24,7 +24,8 @@ namespace TopolEvo.Fitness
         Displacement = 16,
         L1 = 32,
         L2 = 64,
-        Size = 128
+        Size = 128,
+        Presence = 256
     }
 
     public static class Fitness
@@ -122,7 +123,7 @@ namespace TopolEvo.Fitness
                 {
                     //Cell Count
                     var occupancyCount = vals.Sum();
-                    var fitnessSize = (10.0 - (10.0 * occupancyCount / (subdivisions * subdivisions * subdivisions))); //punish high cell count
+                    var fitnessSize = (10.0 - (10.0 * occupancyCount / (Math.Pow(subdivisions, coords.ColumnCount)))); //punish high cell count
 
                     totalFitness += fitnessSize;
                     fitnessString += $" | Size : {Math.Round(fitnessSize, 2)}";
@@ -143,7 +144,7 @@ namespace TopolEvo.Fitness
                         if (standardised > 10) standardised = 10.0;
                         if (standardised < 0) standardised = 0.0;
 
-                        fitnessDisplacement = standardised / 2.0;
+                        fitnessDisplacement = standardised;
                     }
                     catch
                     {
@@ -210,6 +211,19 @@ namespace TopolEvo.Fitness
                     fitnessL2Norm = Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL2Norm;
                     fitnessString += $" | L2Norm : {Math.Round(fitnessL2Norm, 2)}";
+
+                }
+
+                if ((metrics & Metrics.Presence) == Metrics.Presence & occupancyTarget != null)
+                {
+                    var matchingDiffs = occupancyTarget.ToRowMajorArray().Select((v, i) => new { v, i })
+                                        .Where(x => x.v == 1.0)
+                                        .Select(x => x.v - occupancyOutput.ToRowMajorArray()[x.i]);
+
+                    var fitnessPresence = matchingDiffs.Sum();
+                    fitnessPresence = Map(fitnessPresence, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
+                    totalFitness += fitnessPresence;
+                    fitnessString += $" | Presence : {Math.Round(fitnessPresence, 2)}";
 
                 }
 
