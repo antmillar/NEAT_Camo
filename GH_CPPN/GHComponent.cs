@@ -71,6 +71,7 @@ namespace GH_CPPN
             pManager.AddMeshParameter("target mesh", "target", "target meshes", GH_ParamAccess.item);
             pManager.AddTextParameter("perfTimer", "perfTimer", "perfTimer", GH_ParamAccess.item);
             pManager.AddMeshParameter("fems", "fems", "fems", GH_ParamAccess.list);
+            pManager.AddNumberParameter("av fit", "av fit", "av fit", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -80,7 +81,7 @@ namespace GH_CPPN
             double cutoff = Config.survivalCutoff;
             meshTarget = new Mesh();
             bool targetIsShape = false;
-            bool targetIsImage = true;
+            bool targetIsImage = false;
 
             //if (!DA.GetData(0, ref button)) { return; }
             //if (!DA.GetData(1, ref cutoff)) { return; }
@@ -99,7 +100,7 @@ namespace GH_CPPN
 
             coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
             coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.L2;
+            metrics = Metrics.L1;
 
 
 
@@ -123,7 +124,7 @@ namespace GH_CPPN
             //if there is a target shape, rescale to [-0.5, 0.5]
             if (targetIsImage)
             {
-                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\auden.png");
+                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\zebra.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
                 occupancyTarget = Fitness.OccupancyFromImage(subdivisions, coords, bmTarget);
                 var occCount = occupancyTarget.ColumnSums().Sum();
@@ -169,7 +170,7 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(10, subdivisions, popSize);
+                Run(2000  , subdivisions, popSize);
 
                 perfTimer.Stop();
 
@@ -184,6 +185,7 @@ namespace GH_CPPN
             DA.SetData(3, voxelsTarget);
             DA.SetData(4, perfTimer.Elapsed.ToString());
             DA.SetDataList(5, femModels);
+            DA.SetData(6, pop.Genomes.Select(a => a.Fitness).Average());
         }
 
         private List<Mesh> Run(int generations, int subdivisions, int popSize)

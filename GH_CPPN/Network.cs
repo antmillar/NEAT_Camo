@@ -369,7 +369,10 @@ namespace TopolEvo.Architecture
         {
             return Trig.Sin;
         }
-
+        public static Func<double, double> Fract()
+        {
+            return (value) => (value - Math.Truncate(value));
+        }
     }
 
     public class Sigmoid : IActivation

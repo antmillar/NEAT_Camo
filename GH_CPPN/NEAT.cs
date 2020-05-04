@@ -17,11 +17,11 @@ namespace TopolEvo.NEAT
     {
         internal const double mutateConnectionRate = 0.8;
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 0.5;
+        internal static double survivalCutoff = 0.4;
         internal static double asexualRate = 0.25;
 
-        internal static double addNodeRate = 0.02;
-        internal static double addConnectionRate = 0.02; //in higher pop can increase this
+        internal static double addNodeRate = 0.1;
+        internal static double addConnectionRate = 0.1; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
         internal static double reEnableConnectionRate = 0.05;
 
@@ -33,17 +33,39 @@ namespace TopolEvo.NEAT
         internal static int newNodeCounter = 100;
     }
 
+    public enum NodeType
+    {
+        /// <summary>
+        /// Bias node. Output is fixed to 1.0
+        /// </summary>
+        Bias,
+        /// <summary>
+        /// Input node.
+        /// </summary>
+        Input,
+        /// <summary>
+        /// Output node.
+        /// </summary>
+        Output,
+        /// <summary>
+        /// Hidden node.
+        /// </summary>
+        Hidden
+    }
+
     /// <summary>
     /// Population class which holds Genomes and Fitness information
     /// </summary>
     public class Population
     {
         private int _inputDims;
+        public Dictionary<string, int> AddedConnections;
             
         //constructor
         public Population(int size, int inputDims)
         {
             _inputDims = inputDims;
+            AddedConnections = new Dictionary<string, int>();
 
             for (int i = 0; i < size; i++)
             {
@@ -62,17 +84,19 @@ namespace TopolEvo.NEAT
         //currently has to be run after the fitnesses are calculated
         public void NextGen(List<Species> speciesList)
         {
+            //var speciesList = _speciesList.Where(x => (x.Stagnant == false)).ToList();
 
             var popSize = Genomes.Count;
             Genomes.Clear();
 
-            var totalFitness = speciesList.Sum(x => x.Fitness);
+            var totalFitness = speciesList.Select(x => (1.0 / x.Fitness)).Sum();
             var remainder = popSize;
             var count = speciesList.Count;
 
             foreach(var species in speciesList)
             {
-                var proportion = species.Fitness / totalFitness * popSize;
+     
+                var proportion = (1.0 / species.Fitness) / totalFitness * popSize;
 
                 var decimalPart = proportion - Math.Truncate(proportion);
 
@@ -84,7 +108,7 @@ namespace TopolEvo.NEAT
                 {
                     numChildren = remainder;
                 }
-
+                numChildren = numChildren < 0 ? 0 : numChildren;
                 remainder -= numChildren;
                 NextGeneration(species, numChildren);
 
@@ -167,13 +191,13 @@ namespace TopolEvo.NEAT
 
                 if (r2 < Config.addNodeRate)
                 {
-                    child.MutateAddNode();
+                    child.MutateAddNode(this);
                 }
             }
 
             //elitism
             //if species size > 5, random overwrite a child with the champion of previous round
-            if (species.Genomes.Count > 5)
+            if (species.Genomes.Count > 2)
             {
                 children[Config.globalRandom.Next(0, children.Count)] = parents[0];
             }
@@ -252,6 +276,10 @@ namespace TopolEvo.NEAT
             {
                 _activationType = Activation.Sin();
             }
+            else if (activationType == "fract")
+            {
+                _activationType = Activation.Fract();
+            }
         }
 
         //copy constructor
@@ -268,6 +296,18 @@ namespace TopolEvo.NEAT
 
             _activationType = parent._activationType;
 
+        }
+        public override bool Equals(object obj)
+        {
+            var other = obj as NodeGene;
+
+            if (other == null)
+                return false;
+
+            if (_id == other._id)
+                return true;
+            else
+                return false;
         }
 
         public override string ToString()
@@ -308,6 +348,12 @@ namespace TopolEvo.NEAT
             Weight = parent.Weight;
         }
 
+        public ConnectionGene Clone()
+        {
+            return new ConnectionGene(this);
+        }
+
+
         //pick a weight randomly from parents
         public void CrossOver(ConnectionGene parent1, ConnectionGene parent2)
         {
@@ -329,6 +375,12 @@ namespace TopolEvo.NEAT
                 return false;
         }
 
+        //ID for connection gene, will match in different instances if same input and output
+        public string GetID()
+        {
+            return $"({InputNode}:{OutputNode})";
+        }
+
         public override string ToString()
         {
             return $"({InputNode}, {OutputNode}) w = {Math.Round(Weight, 2)} ";
@@ -345,7 +397,7 @@ namespace TopolEvo.NEAT
         public string FitnessAsString { get; set; }
         public BriefFiniteElementNet.Model FEMModel { get; set; }
 
-        public Genome(int inputNodes = 3 , int hiddenNodes = 3, int outputNodes = 1)
+        public Genome(int inputNodes = 3 , int hiddenNodes = 2, int outputNodes = 1)
         {
             //initialise a standard architecture
             Nodes = new List<NodeGene>();
@@ -400,7 +452,6 @@ namespace TopolEvo.NEAT
         {
             Nodes = new List<NodeGene>();
             Connections = new List<ConnectionGene>();
-            Fitness = parent.Fitness;
             ID = Config.genomeID++;
             
 
@@ -427,24 +478,54 @@ namespace TopolEvo.NEAT
         //measures the 'distance' between genomes for use in speciation
         public double Distance(Genome other)
         {
-            var dist = 0.0;
-            var longerGenome = this.Connections.Count > other.Connections.Count ? this : other;
+            var connDist = 0.0;
+            var weightDist = 0.0;
+            var actDist = 0.0;
 
-            foreach(var conn in longerGenome.Connections)
+            var longerGenome = this.Connections.Count > other.Connections.Count ? this : other;
+            var shorterGenome = this.Connections.Count <= other.Connections.Count ? this : other;
+
+            foreach (var conn in longerGenome.Connections)
             {
-                if (!other.Connections.Contains(conn))
+                //if disjoint/excess add 1 to count
+                if (!shorterGenome.Connections.Contains(conn))
                 {
-                    dist += 1.0;
+                    connDist += 1.0;
                 }
 
-                //could add weight distance in here too
+                //if present add weight difference
+                if (shorterGenome.Connections.Contains(conn))
+                {
+                    var otherConn = shorterGenome.Connections.Find(a => a.Equals(conn));
+                    weightDist = Math.Abs(otherConn.Weight - conn.Weight);
+                }
+
                 //could add check to see if they are both enabled
             }
 
-            //normalize
-            dist /= longerGenome.Connections.Count;
+            //measures the number of different activation functions on matching ID nodes
+            foreach (var node in longerGenome.Nodes)
+            {
+                if (shorterGenome.Nodes.Contains(node))
+                {
+                    var otherNode = shorterGenome.Nodes.Find(a => a._id == node._id);
+                    if (otherNode._activationType != node._activationType)
+                    {
+                        actDist += 1.0;
+                    }
+                }
 
-            return dist;
+                //could add check to see if they are both enabled
+            }
+
+            //want to add a weight distance
+
+
+            //normalize
+            //dist /= longerGenome.Connections.Count;
+            var output = connDist + weightDist / 5.0 + actDist;
+
+            return output;
         }
 
         //populate the list of input node ids into each node
@@ -479,23 +560,23 @@ namespace TopolEvo.NEAT
                     {
                         connection.Enabled = true;
                     }
-                    else
-                    {
-                        break;
-                    }
                 }
 
-                if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
+                if (connection.Enabled == true)
                 {
-                    //90% chance permute, 10% chance create new value
-                    if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
+                    if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
+                    {
+                        //90% chance permute, 10% chance create new value
+                        if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
                         {
-                            connection.Weight += Utils.Gaussian(0.0, 1.25);
+                            connection.Weight += Utils.Gaussian(0.0, 2.5);
+                            Utils.Clamp(connection.Weight, 10.0);
                         }
-                    else
+                        else
                         {
                             connection.Weight = Utils.Gaussian(0.0, 5.0);
                         }
+                    }
                 }
             }
         }
@@ -576,21 +657,37 @@ namespace TopolEvo.NEAT
             
         }
 
-        public void MutateAddNode()
+        public void MutateAddNode(Population pop)
         {
             var choice = Config.globalRandom.Next(0, Connections.Count);
 
             var existingConnection = Connections[choice];
             if(existingConnection.InputNode == 9999) { return; }
 
-            var existingBiasConnection = Connections.Single(x => x.InputNode == 9999 & x.OutputNode == existingConnection.OutputNode);
+            //check if existingConnection has been split before
+            int newNodeID;
 
-            var newNodeIndex = Config.newNodeCounter++;
+            if(pop.AddedConnections.Keys.Contains(existingConnection.GetID()))
+            {
+                newNodeID = pop.AddedConnections[existingConnection.GetID()];
+            }
+            else
+            {
+                newNodeID = Config.newNodeCounter++;
+                pop.AddedConnections[existingConnection.GetID()] = newNodeID;
+            }
 
-            var choices = new List<string>() { "sin", "tanh", "sigmoid" };
+            var choices = new List<string>() { "sin", "tanh", "sigmoid", "fract" };
             var pick = choices[Config.globalRandom.Next(0, choices.Count)];
 
-            var newNode = new NodeGene(newNodeIndex, "hidden", pick);
+            var newNode = new NodeGene(newNodeID, "hidden", pick);
+
+            //exit if this innovation has been created before
+            if (Nodes.Contains(newNode)) { return;  }
+
+            var existingBiasConnection = Connections.Single(x => x.InputNode == 9999 & x.OutputNode == existingConnection.OutputNode);
+
+
 
             //new connection in has weight 1
             var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id, 1.0);

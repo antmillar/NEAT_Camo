@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using TopolEvo.NEAT;
 
@@ -11,13 +12,26 @@ namespace TopolEvo.Speciation
         public double Fitness { get; set; }
         public Genome Representative {get; set;}
         public List<double> FitnessHistory { get; set; } = new List<double>();
+
+        public int GenerationsSinceImprovement { get; set; } = 0;
+        public bool Stagnant { get; internal set; }
+
         public Species()
         {
             ID = Config.speciesID++;
         }
-        public void WeightedFitness()
+        public void UpdateFitness()
         {
-            Fitness = Genomes.Count > 0 ? Genomes.Select(x => x.Fitness).Average() : 0.0;
+            //if (Stagnant == true) return;
+
+            Fitness = Genomes.Count > 0 ? Math.Round(Genomes.Select(x => x.Fitness).Average(), 2) : 0.0;
+        }
+
+        public void UpdateRepresentative()
+        {
+            //if (Stagnant == true) return;
+
+            Representative = Genomes.Count > 0 ? Genomes[0] : Representative;
         }
 
         public void Add(Genome genome)
@@ -65,7 +79,8 @@ namespace TopolEvo.Speciation
 
                     var closest = distances.IndexOf(distances.Min());
 
-                    if (distances.Min() > 0.25)
+                    //should have a max number of species maybe
+                    if (distances.Min() > 15)
                     {
                         var species = new Species();
                         species.Add(genome);
@@ -82,11 +97,47 @@ namespace TopolEvo.Speciation
                 }
             }
 
+            var emptySpecies = new List<Species>();
             //calc fitness of each
             foreach (var species in SpeciesList)
             {
-                species.FitnessHistory.Add(species.Fitness);
-                species.WeightedFitness();
+                if (species.Genomes.Count == 0)
+                {
+                    emptySpecies.Add(species);
+
+                }
+                else
+                {
+
+                    //re-assign the representative to the fittest genome in each generation
+                    species.UpdateRepresentative();
+
+                    var prevFitness = species.Fitness;
+                    species.FitnessHistory.Add(prevFitness);
+                    var bestFitness = species.FitnessHistory.Min();
+
+                    species.UpdateFitness();
+                    var currFitness = species.Fitness;
+
+                    if (currFitness < bestFitness)
+                    {
+                        species.GenerationsSinceImprovement = 0;
+                    }
+                    else
+                    {
+                        species.GenerationsSinceImprovement++;
+                    }
+
+                    if (species.GenerationsSinceImprovement > 15)
+                    {
+                        species.Stagnant = true;
+                    }
+                }
+            }
+
+            foreach (var s in emptySpecies)
+            {
+                SpeciesList.Remove(s);
             }
 
             return SpeciesList;

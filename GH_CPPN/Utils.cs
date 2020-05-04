@@ -24,5 +24,11 @@ namespace TopolEvo.Utilities
 
             return randNormal;
         }
+
+        internal static void Clamp(double weight, double rangeMax)
+        {
+            if (weight > rangeMax) weight = rangeMax;
+            if (weight < -rangeMax) weight = -rangeMax;
+        }
     }
 }
