@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using TopolEvo.NEAT;
+using ImageInfo;
 
 namespace TopolEvo.Fitness
 {
@@ -25,7 +26,9 @@ namespace TopolEvo.Fitness
         L1 = 32,
         L2 = 64,
         Size = 128,
-        Presence = 256
+        Luminance = 256,
+        Contrast = 512,
+        Pattern = 1024
     }
 
     public static class Fitness
@@ -46,7 +49,7 @@ namespace TopolEvo.Fitness
 
              
 
-        public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> occupancyTarget, int subdivisions, Metrics metrics)
+        public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> outputTargets, int subdivisions, Metrics metrics)
         {
             //can manually specify a target occupancy using this function
             //occupancyTarget = CreateTargetOccupancy(outputs[pop.Genomes[0].ID].RowCount, outputs[pop.Genomes[0].ID].ColumnCount, coords);
@@ -57,7 +60,7 @@ namespace TopolEvo.Fitness
 
             var fitnesses = new List<double>();
             var fitnessStrings = new List<string>();
-
+            Accord.Math.Random.Generator.Seed = 0;
             //loop over each member of the population and calculate fitness components
             Parallel.ForEach(occupancy.Keys, (key) =>
             //foreach (KeyValuePair<int, Matrix<double> > output in occupancy)
@@ -65,13 +68,45 @@ namespace TopolEvo.Fitness
                 //All Weights are Max 10, Min 0
 
                 var outputID = key;
-                var occupancyOutput = occupancy[key];
+                var outputValues = occupancy[key];
 
                 var totalFitness = 0.0;
                 var fitnessString = "";
 
                 //flatten occupancy matrix
-                var vals = occupancyOutput.ToRowMajorArray();
+                var vals = outputValues.ToRowMajorArray();
+
+                var featDistances = outputs.Select(x => ImageAnalysis.GetFeatureDistance(x.Value, outputTargets, subdivisions)).ToList();
+
+                if ((metrics & Metrics.Pattern) == Metrics.Pattern)
+                {
+                    var featDistance = ImageAnalysis.GetFeatureDistance(outputValues, outputTargets, subdivisions);
+
+                    
+                    totalFitness += featDistance;
+                    fitnessString += $" | Pattern : {Math.Round(featDistance, 2)}";
+                }
+
+                if ((metrics & Metrics.Luminance) == Metrics.Luminance)
+                {
+                    var outputLum = ImageAnalysis.GetMeanLuminance(outputValues, subdivisions);
+                    var targetLum = ImageAnalysis.GetMeanLuminance(outputTargets, subdivisions);
+
+                    var absdiff =  Math.Abs(outputLum - targetLum);
+                    totalFitness += absdiff;
+                    fitnessString += $" | Luminance : {Math.Round(absdiff, 2)}";
+                }
+
+
+                if ((metrics & Metrics.Contrast) == Metrics.Contrast)
+                {
+                    var outputContrast = ImageAnalysis.GetContrast(outputValues, subdivisions);
+                    var targetContrast = ImageAnalysis.GetContrast(outputTargets, subdivisions);
+
+                    var absdiff = Math.Abs(outputContrast - targetContrast);
+                    totalFitness += absdiff;
+                    fitnessString += $" | Contrast : {Math.Round(absdiff, 2)}";
+                }
 
                 if ((metrics & Metrics.Height) == Metrics.Height)
                 {
@@ -135,7 +170,7 @@ namespace TopolEvo.Fitness
                     var fitnessDisplacement = 0.0;
                     try
                     {
-                        var FEMModel = FEM.CreateModel(coords, occupancyOutput, subdivisions, subdivisions, subdivisions);
+                        var FEMModel = FEM.CreateModel(coords, outputValues, subdivisions, subdivisions, subdivisions);
                         pop.GetGenomeByID(outputID).FEMModel = FEMModel;
                         var displacements = FEM.GetDisplacements(FEMModel);
                         var scaled = displacements.Max(i => Math.Abs(i)) * 10e7;
@@ -144,7 +179,7 @@ namespace TopolEvo.Fitness
                         if (standardised > 10) standardised = 10.0;
                         if (standardised < 0) standardised = 0.0;
 
-                        fitnessDisplacement = standardised;
+                        fitnessDisplacement = standardised ;
                     }
                     catch
                     {
@@ -195,9 +230,9 @@ namespace TopolEvo.Fitness
                 }
 
                 //could tidy this error checking
-                if ((metrics & Metrics.L1) == Metrics.L1 & occupancyTarget != null)
+                if ((metrics & Metrics.L1) == Metrics.L1 & outputTargets != null)
                 {
-                    var fitnessL1Norm = (occupancyOutput - occupancyTarget).PointwiseAbs().ToRowMajorArray().Sum();
+                    var fitnessL1Norm = (outputValues - outputTargets).PointwiseAbs().ToRowMajorArray().Sum();
                     fitnessL1Norm = Map(fitnessL1Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL1Norm;
                     fitnessString += $" | L1Norm : {Math.Round(fitnessL1Norm, 2)}";
@@ -205,27 +240,16 @@ namespace TopolEvo.Fitness
                 }
 
 
-                if ((metrics & Metrics.L2) == Metrics.L2 & occupancyTarget != null)
+                if ((metrics & Metrics.L2) == Metrics.L2 & outputTargets != null)
                 {
-                    var fitnessL2Norm = Math.Sqrt((occupancyOutput - occupancyTarget).PointwisePower(2).ToRowMajorArray().Sum());
+                    var fitnessL2Norm = Math.Sqrt((outputValues - outputTargets).PointwisePower(2).ToRowMajorArray().Sum());
                     fitnessL2Norm = Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL2Norm;
                     fitnessString += $" | L2Norm : {Math.Round(fitnessL2Norm, 2)}";
 
                 }
 
-                if ((metrics & Metrics.Presence) == Metrics.Presence & occupancyTarget != null)
-                {
-                    var matchingDiffs = occupancyTarget.ToRowMajorArray().Select((v, i) => new { v, i })
-                                        .Where(x => x.v == 1.0)
-                                        .Select(x => x.v - occupancyOutput.ToRowMajorArray()[x.i]);
-
-                    var fitnessPresence = matchingDiffs.Sum();
-                    fitnessPresence = Map(fitnessPresence, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
-                    totalFitness += fitnessPresence;
-                    fitnessString += $" | Presence : {Math.Round(fitnessPresence, 2)}";
-
-                }
+           
 
                 fitnessString += $" | Total : {Math.Round(totalFitness, 2)}";
                 pop.GetGenomeByID(outputID).Fitness = totalFitness;

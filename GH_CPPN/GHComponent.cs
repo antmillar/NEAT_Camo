@@ -12,6 +12,7 @@ using TopolEvo.NEAT;
 using TopolEvo.Speciation;
 using TopolEvo.Display;
 using TopolEvo.Fitness;
+using ImageInfo;
 
 namespace GH_CPPN
 {
@@ -81,7 +82,7 @@ namespace GH_CPPN
             double cutoff = Config.survivalCutoff;
             meshTarget = new Mesh();
             bool targetIsShape = false;
-            bool targetIsImage = false;
+            bool targetIsImage = true;
 
             //if (!DA.GetData(0, ref button)) { return; }
             //if (!DA.GetData(1, ref cutoff)) { return; }
@@ -100,7 +101,7 @@ namespace GH_CPPN
 
             coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
             coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.Size; // | Metrics.Size;
+            metrics = Metrics.Pattern | Metrics.Luminance | Metrics.Contrast;
 
 
 
@@ -124,9 +125,9 @@ namespace GH_CPPN
             //if there is a target shape, rescale to [-0.5, 0.5]
             if (targetIsImage)
             {
-                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\zebra.jpg");
+                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
-                occupancyTarget = Fitness.OccupancyFromImage(subdivisions, coords, bmTarget);
+                occupancyTarget = Fitness.OccupancyFromImage(200, coords, bmTarget);
                 var occCount = occupancyTarget.ColumnSums().Sum();
 
                 if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
@@ -170,10 +171,9 @@ namespace GH_CPPN
                 perfTimer.Start();
 
                 Config.survivalCutoff = cutoff;
-                Run(100  , subdivisions, popSize);
+                Run(100 , subdivisions, popSize);
 
                 perfTimer.Stop();
-
             }
 
             var topologies = pop.Genomes.Select(i => i.ToString()).ToList();
@@ -203,7 +203,6 @@ namespace GH_CPPN
                 femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
                 femModels = GenerateFEMs(femModels, pop.Genomes.Count);
             }
-
 
             meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 

@@ -15,16 +15,15 @@ namespace TopolEvo.NEAT
     /// </summary>
     public static class Config
     {
-        internal const double mutateConnectionRate = 0.8;
+        internal const double mutateConnectionRate = 0.5;
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 0.4;
+        internal static double survivalCutoff = 0.25;
         internal static double asexualRate = 0.25;
 
-        internal static double addNodeRate = 0.1;
+        internal static double addNodeRate = 0.03;
         internal static double addConnectionRate = 0.1; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
         internal static double reEnableConnectionRate = 0.05;
-
 
         //global random singleton
         internal static readonly System.Random globalRandom = new System.Random();
@@ -523,7 +522,7 @@ namespace TopolEvo.NEAT
 
             //normalize
             //dist /= longerGenome.Connections.Count;
-            var output = connDist + weightDist / 5.0 + actDist;
+            var output = connDist + weightDist / 1.5 + actDist;
 
             return output;
         }
@@ -687,8 +686,6 @@ namespace TopolEvo.NEAT
 
             var existingBiasConnection = Connections.Single(x => x.InputNode == 9999 & x.OutputNode == existingConnection.OutputNode);
 
-
-
             //new connection in has weight 1
             var newConnectionIn = new ConnectionGene(existingConnection.InputNode, newNode._id, 1.0);
 
@@ -701,8 +698,10 @@ namespace TopolEvo.NEAT
             Connections.Add(newConnectionOut);
             Connections.Add(newConnectionBias);
 
-            existingConnection.Enabled = false;
-            existingConnection.Weight = 0.0;
+            Connections.Remove(existingConnection);
+
+            //existingConnection.Enabled = false;
+            //existingConnection.Weight = 0.0;
 
             CalculateInputs();
         }
