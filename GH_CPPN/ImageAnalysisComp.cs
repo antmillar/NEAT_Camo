@@ -96,7 +96,7 @@ namespace GH_CPPN
             double[][] features = bow.Transform(images);
             int totalDescriptors = bow.Statistics.TotalNumberOfDescriptors;
 
-            var occupancyTarget = Fitness.OccupancyFromImage(subdivs, coords, b);
+            var occupancyTarget = Fitness.PixelsFromImage(subdivs, coords, b);
             var backgroundImage = GenerateImageTarget(occupancyTarget, subdivs);
             var test = ImageAnalysis.BitmapFromOccupancy(occupancyTarget, subdivs);
 

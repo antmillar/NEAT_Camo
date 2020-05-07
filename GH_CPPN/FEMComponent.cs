@@ -92,7 +92,7 @@ namespace GH_CPPN
             var coords = FEM.PopulateCoords(x ,y, z, 3);
 
 
-            var occupancyTarget= Fitness.OccupancyFromMesh(x * y * z, 1, coords, inputMesh);
+            var occupancyTarget= Fitness.VoxelsFromMesh(x * y * z, 1, coords, inputMesh);
 
             var FEMModel = FEM.CreateModel(coords, occupancyTarget, x, y, z);
 

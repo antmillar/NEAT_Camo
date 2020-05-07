@@ -283,9 +283,9 @@ namespace TopolEvo.Fitness
         }
 
         //greyscale from image
-        internal static Matrix<double> OccupancyFromImage(int subdivisions, Matrix<double> coords, Bitmap bmTarget)
+        internal static Matrix<double> PixelsFromImage(int subdivisions, Matrix<double> coords, Bitmap bmTarget)
         {
-            var occupancyTarget = Matrix<double>.Build.Dense(subdivisions * subdivisions, 1, 0.0);
+            var pixelTarget = Matrix<double>.Build.Dense(subdivisions * subdivisions, 1, 0.0);
 
             var width = bmTarget.Width;
             var height = bmTarget.Height;
@@ -298,38 +298,38 @@ namespace TopolEvo.Fitness
             {
                 for (int x = 0; x < subdivisions; x++)
                 {
-                    occupancyTarget[counter, 0] = bmTarget.GetPixel(x * xStep, y * yStep).R / 255.0;
+                    pixelTarget[counter, 0] = bmTarget.GetPixel(x * xStep, y * yStep).R / 255.0;
                     counter++;
                 }
             }
 
-            return occupancyTarget;
+            return pixelTarget;
         }
 
 
         /// <summary>
         /// Find points in voxel grid contained inside the target mesh
         /// </summary>
-        public static Matrix<double> OccupancyFromMesh(int rows, int cols, Matrix<double> coords, Mesh meshTarget)
+        public static Matrix<double> VoxelsFromMesh(int rows, int cols, Matrix<double> coords, Mesh meshTarget)
         {
 
             meshTarget.FillHoles();
 
-            var occupancyTarget= Matrix<double>.Build.Dense(rows, cols, 0.0);
+            var voxelsTarget= Matrix<double>.Build.Dense(rows, cols, 0.0);
 
-            for (int i = 0; i < occupancyTarget.RowCount; i++)
+            for (int i = 0; i < voxelsTarget.RowCount; i++)
             {
                 ////equation of circle
                 var pt = new Point3d(coords[i, 0], coords[i, 1], coords[i, 2]);
 
                 if (meshTarget.IsPointInside(pt, 0.5, false))
                 {
-                    occupancyTarget[i, 0] = 1.0;
+                    voxelsTarget[i, 0] = 1.0;
                 }
 
             }
 
-            return occupancyTarget;
+            return voxelsTarget;
         }
 
         /// <summary>

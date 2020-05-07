@@ -15,9 +15,9 @@ namespace TopolEvo.Display
 
 
         //constructor
-        public Mesh Create(Matrix<double> output, int subdivisions, int xCenter = 0, int yCenter = 0)
+        public Mesh Create(Matrix<double> values, int subdivisions, double width, int xCenter = 0, int yCenter = 0)
         {
-            double size = 10.0 / subdivisions;
+            double size = width / subdivisions;
 
             for (int i = 0; i < subdivisions; i++)
             {
@@ -41,7 +41,7 @@ namespace TopolEvo.Display
             for (int i = 0; i < Meshes.Count; i++)
 
             {
-                double col = output[i, 0];
+                double col = values[i, 0];
                 if (col < 0.0) col = 0.0;
                 if (col > 1.0) col = 1.0;
                 int intCol = (int)(col * 255);
