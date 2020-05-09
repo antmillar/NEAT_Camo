@@ -78,8 +78,9 @@ namespace GH_CPPN
 
             //Accord.Imaging.Image.SetGrayscalePalette(a);
 
-            ////var gaborFilter = new GaborFilter();
-            ////var filtered = gaborFilter.Apply(a);
+            var gaborFilter = new GaborFilter();
+            gaborFilter.Theta = Math.PI / 2.0;
+            var filtered = gaborFilter.Apply(a);
 
             var bow = Accord.Imaging.BagOfVisualWords.Create(numberOfWords: 10);
             // Note: a simple BoW model can also be created using
@@ -96,9 +97,9 @@ namespace GH_CPPN
             double[][] features = bow.Transform(images);
             int totalDescriptors = bow.Statistics.TotalNumberOfDescriptors;
 
-            var occupancyTarget = Fitness.PixelsFromImage(subdivs, coords, b);
+            var occupancyTarget = Fitness.PixelsFromImage(subdivs, coords, filtered);
             var backgroundImage = GenerateImageTarget(occupancyTarget, subdivs);
-            var test = ImageAnalysis.BitmapFromOccupancy(occupancyTarget, subdivs);
+            var test = ImageAnalysis.BitmapFromPixels(occupancyTarget, subdivs);
 
             var mean = GetMeanLuminance(bmTarget);
             var std = GetContrast(bmTarget);
@@ -108,7 +109,7 @@ namespace GH_CPPN
             // Finally assign the spiral to the output parameter.
             DA.SetData(0, mean);
             DA.SetData(1, std);
-            //DA.SetData(2, backgroundImage);
+            DA.SetData(2, backgroundImage);
         }
 
         /// <summary>

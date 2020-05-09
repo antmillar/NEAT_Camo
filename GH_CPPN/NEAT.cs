@@ -17,13 +17,12 @@ namespace TopolEvo.NEAT
     {
         internal const double mutateConnectionRate = 0.5;
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 0.25;
+        internal static double survivalCutoff = 0.5;
         internal static double asexualRate = 0.25;
 
-        internal static double addNodeRate = 0.03;
+        internal static double addNodeRate = 0.1;
         internal static double addConnectionRate = 0.1; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
-        internal static double reEnableConnectionRate = 0.05;
 
         //global random singleton
         internal static readonly System.Random globalRandom = new System.Random();
@@ -252,10 +251,13 @@ namespace TopolEvo.NEAT
 
     public class NodeGene : Gene
     {
-        protected internal Func<double, double> _activationType;
         protected internal int _id;
         protected internal string _type;
         protected internal List<int> _inputs;
+
+        protected internal Activation Activation { get; set; }
+
+        protected internal Enum NodeType; 
 
         public NodeGene(int id, string type, string activationType = "tanh")
         {
@@ -265,19 +267,27 @@ namespace TopolEvo.NEAT
 
             if (activationType == "tanh")
             {
-                _activationType = Activation.Tanh();
+                Activation = Activations.Tanh();
             }
             else if (activationType == "sigmoid")
             {
-                _activationType = Activation.Sigmoid();
+                Activation = Activations.Sigmoid();
             }
             else if (activationType == "sin")
             {
-                _activationType = Activation.Sin();
+                Activation = Activations.Sin();
             }
             else if (activationType == "fract")
             {
-                _activationType = Activation.Fract();
+                Activation = Activations.Fract();
+            }
+            else if (activationType == "rescale")
+            {
+                Activation = Activations.Rescale();
+            }
+            else if (activationType == "gaussian")
+            {
+                Activation = Activations.Gaussian();
             }
         }
 
@@ -293,7 +303,7 @@ namespace TopolEvo.NEAT
                 _inputs.Add(i);
             }
 
-            _activationType = parent._activationType;
+            Activation = parent.Activation;
 
         }
         public override bool Equals(object obj)
@@ -311,7 +321,7 @@ namespace TopolEvo.NEAT
 
         public override string ToString()
         {
-            return _id.ToString();
+            return _id.ToString() + " (" + Activation.Name + ") | " ;
         }
 
     }
@@ -389,56 +399,65 @@ namespace TopolEvo.NEAT
 
     public class Genome
     {
-        public List<NodeGene> Nodes { get; set; }
-        public List<ConnectionGene> Connections { get; set; }
-        protected internal double Fitness { get; set; }
+        public List<NodeGene> Nodes { get; set; } = new List<NodeGene>();
+        public List<ConnectionGene> Connections { get; set; } = new List<ConnectionGene>();
+        protected internal double Fitness { get; set; } = 0.0;
         public int ID { get; set; }
         public string FitnessAsString { get; set; }
         public BriefFiniteElementNet.Model FEMModel { get; set; }
 
-        public Genome(int inputNodes = 3 , int hiddenNodes = 2, int outputNodes = 1)
+
+        public Genome(int inputNodes = 2 , int hiddenNodes = 0, int outputNodes = 1)
         {
-            //initialise a standard architecture
-            Nodes = new List<NodeGene>();
-            Connections = new List<ConnectionGene>();
-            Fitness = 0.0;
             ID = Config.genomeID++;
 
-            var nodeCount = 0;
+            var nodeCounter = 0;
+
+            //create default topology
 
             //add input nodes and ongoing connections
             for (int i = 0; i < inputNodes; i++)
             {
-                Nodes.Add(new NodeGene(nodeCount, "input"));
+                Nodes.Add(new NodeGene(nodeCounter, "input"));
 
                 //add connection to each node in the next layer
                 for (int j = inputNodes; j < inputNodes + hiddenNodes ; j++)
                 {
-                    Connections.Add(new ConnectionGene(nodeCount, j));
-                }
-                nodeCount++;
-            }
-            
-            //add hidden nodes and ongoing connections and biases
-            for (int i = 0; i < hiddenNodes; i++)
-            {
-                Nodes.Add(new NodeGene(nodeCount, "hidden", "tanh"));
-                Connections.Add(new ConnectionGene(9999, nodeCount));
-                //add connection to each node in the next layer
-                for (int j = inputNodes + hiddenNodes; j < inputNodes + hiddenNodes + outputNodes; j++)
-                {
-                    Connections.Add(new ConnectionGene(nodeCount, j));
+                    Connections.Add(new ConnectionGene(nodeCounter, j));
                 }
 
-                nodeCount++;
+                if (hiddenNodes == 0)
+                {
+                    for (int j = inputNodes; j < inputNodes + outputNodes; j++)
+                    {
+                        Connections.Add(new ConnectionGene(nodeCounter, j));
+                     }
+                }
+
+                nodeCounter++;
             }
+            
+                //add hidden nodes and ongoing connections and biases
+                for (int i = 0; i < hiddenNodes; i++)
+                {
+                    Nodes.Add(new NodeGene(nodeCounter, "hidden", "gaussian"));
+                    //add bias connection to each new node
+                    Connections.Add(new ConnectionGene(9999, nodeCounter));
+
+                    //add connection to each node in the next layer
+                    for (int j = inputNodes + hiddenNodes; j < inputNodes + hiddenNodes + outputNodes; j++)
+                    {
+                        Connections.Add(new ConnectionGene(nodeCounter, j));
+                    }
+                    nodeCounter++;
+                }
 
             //add output nodes and biases
             for (int i = 0; i < outputNodes; i++)
             {
-                Nodes.Add(new NodeGene(nodeCount, "output", "sigmoid"));
-                Connections.Add(new ConnectionGene(9999, nodeCount));
-                nodeCount++;
+                Nodes.Add(new NodeGene(nodeCounter, "output", "sigmoid"));
+                Connections.Add(new ConnectionGene(9999, nodeCounter));
+                nodeCounter++;
             }
 
             Nodes.Add(new NodeGene(9999, "bias"));
@@ -508,7 +527,7 @@ namespace TopolEvo.NEAT
                 if (shorterGenome.Nodes.Contains(node))
                 {
                     var otherNode = shorterGenome.Nodes.Find(a => a._id == node._id);
-                    if (otherNode._activationType != node._activationType)
+                    if (otherNode.Activation != node.Activation)
                     {
                         actDist += 1.0;
                     }
@@ -552,31 +571,20 @@ namespace TopolEvo.NEAT
             {
                 //need to clamp weights?
 
-                //if connection disabled re-enable with probability, else keeps the weight fixed at 0.0 until enabled.
-                if (connection.Enabled == false)
+                if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
                 {
-                    if (Config.globalRandom.NextDouble() < Config.reEnableConnectionRate)
+                    //90% chance permute, 10% chance create new value
+                    if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
                     {
-                        connection.Enabled = true;
+                        connection.Weight += Utils.Gaussian(0.0, 5.0);
+                        Utils.Clamp(connection.Weight, 10.0);
+                    }
+                    else
+                    {
+                        connection.Weight = Utils.Gaussian(0.0, 5.0);
                     }
                 }
-
-                if (connection.Enabled == true)
-                {
-                    if (Config.globalRandom.NextDouble() < Config.mutateConnectionRate)
-                    {
-                        //90% chance permute, 10% chance create new value
-                        if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
-                        {
-                            connection.Weight += Utils.Gaussian(0.0, 2.5);
-                            Utils.Clamp(connection.Weight, 10.0);
-                        }
-                        else
-                        {
-                            connection.Weight = Utils.Gaussian(0.0, 5.0);
-                        }
-                    }
-                }
+                
             }
         }
 
@@ -676,7 +684,7 @@ namespace TopolEvo.NEAT
                 pop.AddedConnections[existingConnection.GetID()] = newNodeID;
             }
 
-            var choices = new List<string>() { "sin", "tanh", "sigmoid", "fract" };
+            var choices = new List<string>() { "sin", "gaussian", "sigmoid", "rescale" };
             var pick = choices[Config.globalRandom.Next(0, choices.Count)];
 
             var newNode = new NodeGene(newNodeID, "hidden", pick);

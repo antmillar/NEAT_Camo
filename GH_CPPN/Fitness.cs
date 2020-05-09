@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TopolEvo.NEAT;
 using ImageInfo;
+using TopolEvo.Utilities;
 
 namespace TopolEvo.Fitness
 {
@@ -34,20 +35,11 @@ namespace TopolEvo.Fitness
     public static class Fitness
     {
 
-        public static double Map(double num, double x1, double y1, double x2, double y2)
-        {
-            var result = ((num - x1) / (y1 - x1)) * (y2 - x2) + x2;  
-
-            return result;
-        }
-
-
         /// <summary> 
         /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
         /// 
-
-             
+           
 
         public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> outputTargets, int subdivisions, Metrics metrics)
         {
@@ -61,6 +53,16 @@ namespace TopolEvo.Fitness
             var fitnesses = new List<double>();
             var fitnessStrings = new List<string>();
             Accord.Math.Random.Generator.Seed = 0;
+
+            if ((metrics & Metrics.Pattern) == Metrics.Pattern)
+            {
+                var featDistance = ImageAnalysis.GetFeatureDistances(occupancy, outputTargets, subdivisions);
+
+
+               // totalFitness += featDistance;
+               // fitnessString += $" | Pattern : {Math.Round(featDistance, 2)}";
+            }
+
             //loop over each member of the population and calculate fitness components
             Parallel.ForEach(occupancy.Keys, (key) =>
             //foreach (KeyValuePair<int, Matrix<double> > output in occupancy)
@@ -82,7 +84,7 @@ namespace TopolEvo.Fitness
                 {
                     var featDistance = ImageAnalysis.GetFeatureDistance(outputValues, outputTargets, subdivisions);
 
-                    
+
                     totalFitness += featDistance;
                     fitnessString += $" | Pattern : {Math.Round(featDistance, 2)}";
                 }
@@ -93,6 +95,9 @@ namespace TopolEvo.Fitness
                     var targetLum = ImageAnalysis.GetMeanLuminance(outputTargets, subdivisions);
 
                     var absdiff =  Math.Abs(outputLum - targetLum);
+
+                    absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
+
                     totalFitness += absdiff;
                     fitnessString += $" | Luminance : {Math.Round(absdiff, 2)}";
                 }
@@ -104,6 +109,9 @@ namespace TopolEvo.Fitness
                     var targetContrast = ImageAnalysis.GetContrast(outputTargets, subdivisions);
 
                     var absdiff = Math.Abs(outputContrast - targetContrast);
+
+                    absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
+
                     totalFitness += absdiff;
                     fitnessString += $" | Contrast : {Math.Round(absdiff, 2)}";
                 }
@@ -122,7 +130,7 @@ namespace TopolEvo.Fitness
                         }
                     }
 
-                    fitnessHeight = Map(fitnessHeight, 0, subdivisions, 0, 10);
+                    fitnessHeight = Utils.Map(fitnessHeight, 0, subdivisions, 0, 10);
 
                     totalFitness += fitnessHeight;
                     fitnessString += $" | Height : {Math.Round(fitnessHeight, 2)}";
@@ -148,7 +156,7 @@ namespace TopolEvo.Fitness
                         }
                     }
 
-                    fitnessDepth = Map(fitnessDepth, 0, subdivisions, 0, 10);
+                    fitnessDepth = Utils.Map(fitnessDepth, 0, subdivisions, 0, 10);
 
                     totalFitness += fitnessDepth;
                     fitnessString += $" | Depth : {Math.Round(fitnessDepth, 2)}";
@@ -174,7 +182,7 @@ namespace TopolEvo.Fitness
                         pop.GetGenomeByID(outputID).FEMModel = FEMModel;
                         var displacements = FEM.GetDisplacements(FEMModel);
                         var scaled = displacements.Max(i => Math.Abs(i)) * 10e7;
-                        var standardised = 10 - Map(scaled, 0.01, 1.00, 0, 10);
+                        var standardised = 10 - Utils.Map(scaled, 0.01, 1.00, 0, 10);
 
                         if (standardised > 10) standardised = 10.0;
                         if (standardised < 0) standardised = 0.0;
@@ -233,7 +241,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L1) == Metrics.L1 & outputTargets != null)
                 {
                     var fitnessL1Norm = (outputValues - outputTargets).PointwiseAbs().ToRowMajorArray().Sum();
-                    fitnessL1Norm = Map(fitnessL1Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
+                    fitnessL1Norm = Utils.Map(fitnessL1Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL1Norm;
                     fitnessString += $" | L1Norm : {Math.Round(fitnessL1Norm, 2)}";
 
@@ -243,7 +251,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L2) == Metrics.L2 & outputTargets != null)
                 {
                     var fitnessL2Norm = Math.Sqrt((outputValues - outputTargets).PointwisePower(2).ToRowMajorArray().Sum());
-                    fitnessL2Norm = Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
+                    fitnessL2Norm = Utils.Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
                     totalFitness += fitnessL2Norm;
                     fitnessString += $" | L2Norm : {Math.Round(fitnessL2Norm, 2)}";
 

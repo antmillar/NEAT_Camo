@@ -59,39 +59,75 @@ namespace ImageInfo
             return MathNet.Numerics.Distance.Euclidean(feat1, feat2);
         }
 
-        public static Bitmap BitmapFromOccupancy(Matrix<double> target, int subdivisions)
+        public static Bitmap BitmapFromPixels(Matrix<double> pixels, int subdivisions)
         {
             //USE BYTES INSTEAD??
-            Bitmap output;
+            Bitmap bitmap;
             var arrToBitmap = new Accord.Imaging.Converters.ArrayToImage(subdivisions, subdivisions);
-            arrToBitmap.Convert(target.ToColumnMajorArray(), out output);
+            arrToBitmap.Convert(pixels.ToColumnMajorArray(), out bitmap);
             //output.Save(@"C:\Users\antmi\pictures\testing.jpg");
-            return output;
+            return bitmap;
         }
 
         public static double GetFeatureDistance(Matrix<double> output, Matrix<double> target, int subdivisions)
         {
 
-            var detector = new Accord.Imaging.FastCornersDetector()
-            {
-                Suppress = true, // suppress non-maximum points
-                Threshold = 100   // less leads to more corners
-            };
+            //var detector = new Accord.Imaging.FastCornersDetector()
+            //{
+            //    Suppress = true, // suppress non-maximum points
+            //    Threshold = 100   // less leads to more corners
+            //};
 
             //var bow = Accord.Imaging.BagOfVisualWords.Create(numberOfWords: 10);
             //var bow = Accord.Imaging.BagOfVisualWords.Create(new Accord.Imaging.FastRetinaKeypointDetector(detector), new Accord.MachineLearning.BinarySplit(10));
             var bow = Accord.Imaging.BagOfVisualWords.Create(new Accord.Imaging.HistogramsOfOrientedGradients(), numberOfWords: 10);
 
-            var a = ImageAnalysis.BitmapFromOccupancy(output, subdivisions);
-            var b = ImageAnalysis.BitmapFromOccupancy(target, subdivisions * 2);
+            var a = ImageAnalysis.BitmapFromPixels(output, subdivisions);
+            var b = ImageAnalysis.BitmapFromPixels(target, subdivisions * 4);
 
             Bitmap[] images = new Bitmap[2] { a , b};
 
             bow.Learn(images);
-            var test = bow.Statistics.TotalNumberOfDescriptors;
+
             double[][] features = bow.Transform(images);
 
             var dist = ImageAnalysis.FeatureDistance(features[0], features[1]);
+
+            return dist;
+        }
+
+        public static double GetFeatureDistances(Dictionary<int, Matrix<double>> outputs, Matrix<double> target, int subdivisions)
+        {
+
+            var bow = Accord.Imaging.BagOfVisualWords.Create(new Accord.Imaging.HistogramsOfOrientedGradients(), numberOfWords: 10);
+
+            Bitmap[] images = new Bitmap[1 + outputs.Count];
+
+            var targetBitmap = ImageAnalysis.BitmapFromPixels(target, subdivisions * 4);
+
+            images[0] = targetBitmap;
+            var count = 1;
+
+            var mappings = new Dictionary<int, int>();
+
+            foreach(var key in outputs.Keys)
+            {
+                var outputBitmap = ImageAnalysis.BitmapFromPixels(outputs[key], subdivisions);
+                images[count] = outputBitmap;
+                mappings[count] = key;
+                count++;
+            }
+
+            bow.Learn(images);
+
+            double[][] features = bow.Transform(images);
+
+            for (int i = 1; i < outputs.Count; i++)
+            {
+                var dist = ImageAnalysis.FeatureDistance(features[0], features[i]);
+
+            }
+
 
             return dist;
         }

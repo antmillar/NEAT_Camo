@@ -295,10 +295,10 @@ namespace TopolEvo.Architecture
             Parallel.For(0, layerOutputs.ColumnCount, (j) =>
             {
                 var nodeNum = _layersEndNodes[layerNum][j];
-                var actType = _genome.GetNodeByID(nodeNum)._activationType;
+                var actFunction = _genome.GetNodeByID(nodeNum).Activation.Function;
 
                 var newVals = layerOutputs.Column(j);
-                layerOutputs.Column(j).Map(actType, newVals, Zeros.Include);
+                layerOutputs.Column(j).Map(actFunction, newVals, Zeros.Include);
                 layerOutputs.SetColumn(j, newVals);
 
 
@@ -353,25 +353,48 @@ namespace TopolEvo.Architecture
         NDArray Apply (NDArray input);
     }
 
-    public static class Activation
+    public class Activation
     {
-        public static Func<double, double> Sigmoid()
+        public Func<double, double> Function { get; set; }
+        public string Name { get; set; }
+
+        public Activation(Func<double, double> function, string name)
+         {
+            Function = function;
+            Name = name;
+          }
+    }
+
+
+    public static class Activations
+    {
+        public static Activation Sigmoid()
         {
-            return SpecialFunctions.Logistic;
+            return new Activation(SpecialFunctions.Logistic, "Sigmoid"); ;
         }
 
-        public static Func<double, double> Tanh()
+        public static Activation Tanh()
         {
-            return Trig.Tanh;
+            return new Activation(Trig.Tanh, "Tanh");
         }
 
-        public static Func<double, double> Sin()
+        public static Activation Sin()
         {
-            return Trig.Sin;
+            return new Activation(Trig.Sin, "Sin");
         }
-        public static Func<double, double> Fract()
+        public static Activation Fract()
         {
-            return (value) => (value - Math.Truncate(value));
+            return new Activation((value) => (value - Math.Truncate(value)), "Fract");
+        }
+
+        internal static Activation Rescale()
+        {
+            return new Activation((value) => (10.0 * value), "Rescale");
+        }
+
+        internal static Activation Gaussian()
+        {
+            return new Activation((value) => Math.Exp(-(value * value)), "Gaussian");
         }
     }
 

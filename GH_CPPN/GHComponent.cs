@@ -23,7 +23,7 @@ namespace GH_CPPN
         }
 
         //fields
-        private bool init = false;
+        private bool init;
         private Population pop;
         private List<string> fits;
         private List<Mesh> femModels;
@@ -77,28 +77,27 @@ namespace GH_CPPN
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            perfTimer = new Stopwatch();
-            perfTimer.Start();
+
 
             //defaults
             bool button = false;
             int generations = 1;
-            bool targetIsShape = false;
-            bool targetIsImage = true;
+            bool targetIs2D = true;
+            bool targetIs3D = false;
 
             DA.GetData(0, ref button);
             DA.GetData(1, ref generations);
-            if (DA.GetData(2, ref meshTarget)) { targetIsShape = true; }
+            if (DA.GetData(2, ref meshTarget)) { targetIs2D = true; }
             DA.GetData(3, ref subdivisions);
             DA.GetData(4, ref popSize);
             DA.GetData(5, ref dims);
 
             coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
             coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.Pattern | Metrics.Luminance | Metrics.Contrast;
+            metrics = Metrics.Pattern;
 
             //if there is a target shape, rescale to [-0.5, 0.5]
-            if (targetIsShape)
+            if (targetIs3D)
             {
                 var bbox = meshTarget.GetBoundingBox(true);
                 var box = new Box(bbox);
@@ -114,11 +113,11 @@ namespace GH_CPPN
             }
 
             //if there is a target shape, rescale to [-0.5, 0.5]
-            if (targetIsImage)
+            if (targetIs2D)
             {
                 Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
-                targetValues = Fitness.PixelsFromImage(subdivisions * 2, coords, bmTarget);
+                targetValues = Fitness.PixelsFromImage(subdivisions * 4, coords, bmTarget);
                 var occCount = targetValues.ColumnSums().Sum();
 
                 if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
@@ -127,27 +126,33 @@ namespace GH_CPPN
             //on first run, initialise population
             if (!init)
             {
+                perfTimer = new Stopwatch();
+                perfTimer.Start();
+
                 init = true;
                 pop = new Population(popSize, dims);
 
-                Evaluation();
             }
 
             //paint mesh using outputs
 
-            if (button)
+            else if (button)
             {
+                perfTimer = new Stopwatch();
+                perfTimer.Start();
+
                 Run(generations , subdivisions, popSize);
+
+                meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
+
+                perfTimer.Stop();
             }
 
-            if (targetIsImage) voxelsTarget = DrawImageTarget(targetValues, subdivisions * 2);
-            if (targetIsShape) voxelsTarget = DrawVoxelsTarget(targetValues, subdivisions);
+            if (targetIs3D) voxelsTarget = Draw3DTarget(targetValues, subdivisions);
+            if (targetIs2D) voxelsTarget = Draw2DTarget(targetValues, subdivisions * 4);
 
-            meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 
             var topologies = pop.Genomes.Select(i => i.ToString()).ToList();
-
-            perfTimer.Stop();
 
             //output data from GH component
             DA.SetDataList(0, meshes);
@@ -178,11 +183,14 @@ namespace GH_CPPN
 
             fits = Fitness.Function(pop, outputs, coords, targetValues, subdivisions, metrics);
 
-            femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
-            femModels = GenerateFEMs(femModels, pop.Genomes.Count);
+            if ((metrics & Metrics.Displacement) == Metrics.Displacement)
+            {
+                femModels = pop.Genomes.Select(g => FEM.MakeFrame(g.FEMModel, FEM.GetDisplacements(g.FEMModel)).Item1).ToList();
+                femModels = GenerateFEMs(femModels, pop.Genomes.Count);
+            }
         }
 
-        private Mesh DrawVoxelsTarget(Matrix<double> target, int subdivisions)
+        private Mesh Draw3DTarget(Matrix<double> target, int subdivisions)
         {
             var volume = new Volume();
             Mesh mesh = volume.Create(target, subdivisions, -30, 0, 0);
@@ -190,10 +198,10 @@ namespace GH_CPPN
             return mesh;
         }
 
-        private Mesh DrawImageTarget(Matrix<double> target, int subdivisions)
+        private Mesh Draw2DTarget(Matrix<double> target, int subdivisions)
         {
             var drawing = new Drawing();
-            Mesh mesh = drawing.Create(target, subdivisions, 20.0,  -30, 0);
+            Mesh mesh = drawing.Create(target, subdivisions, 10.0 * 4, -10.0 * 4 - 10, 0);
 
             return mesh;
         }

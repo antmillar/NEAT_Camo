@@ -10,6 +10,25 @@ namespace TopolEvo.Utilities
     public static class Utils
     {
         /// <summary>
+        /// Remap values from one range to another
+        /// </summary>
+        public static double Map(double value, double startOld, double endOld, double startNew, double endNew)
+        {
+            var result = ((value - startOld) / (endOld - startOld)) * (endNew - startNew) + startNew;
+
+            return result;
+        }
+
+        /// <summary>
+        /// Clamp values within a +- range
+        /// </summary>
+        internal static void Clamp(double weight, double rangeMax)
+        {
+            if (weight > rangeMax) weight = rangeMax;
+            if (weight < -rangeMax) weight = -rangeMax;
+        }
+
+        /// <summary>
         /// Create a Random Normal variable using Box Muller Transform
         /// from https://stackoverflow.com/questions/218060/random-gaussian-variables
         /// </summary>
@@ -25,10 +44,6 @@ namespace TopolEvo.Utilities
             return randNormal;
         }
 
-        internal static void Clamp(double weight, double rangeMax)
-        {
-            if (weight > rangeMax) weight = rangeMax;
-            if (weight < -rangeMax) weight = -rangeMax;
-        }
+
     }
 }
