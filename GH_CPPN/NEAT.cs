@@ -15,13 +15,13 @@ namespace TopolEvo.NEAT
     /// </summary>
     public static class Config
     {
-        internal const double mutateConnectionRate = 0.5;
+        internal const double mutateConnectionRate = 0.8;
         internal const string fitnessTarget = "min";
         internal static double survivalCutoff = 0.5;
         internal static double asexualRate = 0.25;
 
         internal static double addNodeRate = 0.1;
-        internal static double addConnectionRate = 0.1; //in higher pop can increase this
+        internal static double addConnectionRate = 0.2; //in higher pop can increase this
         internal static double permuteOrResetRate = 0.9;
 
         //global random singleton
@@ -87,14 +87,15 @@ namespace TopolEvo.NEAT
             var popSize = Genomes.Count;
             Genomes.Clear();
 
-            var totalFitness = speciesList.Select(x => (1.0 / x.Fitness)).Sum();
+            var totalFitness = speciesList.Select(x => (1.0 /x.Fitness)).Sum();
+            var expSum = speciesList.Select(x => Math.Exp(1.0/ x.Fitness)).Sum();
             var remainder = popSize;
             var count = speciesList.Count;
 
             foreach(var species in speciesList)
             {
-     
-                var proportion = (1.0 / species.Fitness) / totalFitness * popSize;
+                var newProp = Math.Exp((1.0/species.Fitness)) / expSum * popSize; ;
+                var proportion = (1.0/species.Fitness) / totalFitness * popSize;
 
                 var decimalPart = proportion - Math.Truncate(proportion);
 
@@ -195,9 +196,10 @@ namespace TopolEvo.NEAT
 
             //elitism
             //if species size > 5, random overwrite a child with the champion of previous round
-            if (species.Genomes.Count > 2)
+            if (species.Genomes.Count > 5)
             {
                 children[Config.globalRandom.Next(0, children.Count)] = parents[0];
+                children[Config.globalRandom.Next(0, children.Count)] = parents[1];
             }
 
             species.Genomes = children;
@@ -288,6 +290,18 @@ namespace TopolEvo.NEAT
             else if (activationType == "gaussian")
             {
                 Activation = Activations.Gaussian();
+            }
+            else if (activationType == "square")
+            {
+                Activation = Activations.Square();
+            }
+            else if (activationType == "cos")
+            {
+                Activation = Activations.Cos();
+            }
+            else if (activationType == "linear")
+            {
+                Activation = Activations.Linear();
             }
         }
 
@@ -407,7 +421,7 @@ namespace TopolEvo.NEAT
         public BriefFiniteElementNet.Model FEMModel { get; set; }
 
 
-        public Genome(int inputNodes = 2 , int hiddenNodes = 0, int outputNodes = 1)
+        public Genome(int inputNodes = 3 , int hiddenNodes = 0, int outputNodes = 1)
         {
             ID = Config.genomeID++;
 
@@ -440,7 +454,7 @@ namespace TopolEvo.NEAT
                 //add hidden nodes and ongoing connections and biases
                 for (int i = 0; i < hiddenNodes; i++)
                 {
-                    Nodes.Add(new NodeGene(nodeCounter, "hidden", "gaussian"));
+                    Nodes.Add(new NodeGene(nodeCounter, "hidden", "sigmoid"));
                     //add bias connection to each new node
                     Connections.Add(new ConnectionGene(9999, nodeCounter));
 
@@ -541,7 +555,7 @@ namespace TopolEvo.NEAT
 
             //normalize
             //dist /= longerGenome.Connections.Count;
-            var output = connDist + weightDist / 1.5 + actDist;
+            var output = connDist + weightDist / 2.5 + actDist;
 
             return output;
         }
@@ -576,12 +590,14 @@ namespace TopolEvo.NEAT
                     //90% chance permute, 10% chance create new value
                     if (Config.globalRandom.NextDouble() < Config.permuteOrResetRate)
                     {
-                        connection.Weight += Utils.Gaussian(0.0, 5.0);
-                        Utils.Clamp(connection.Weight, 10.0);
+                        connection.Weight += Utils.Gaussian(0.0, 1.25);
+                        connection.Weight = Utils.Clamp(connection.Weight, 15.0);
                     }
                     else
                     {
                         connection.Weight = Utils.Gaussian(0.0, 5.0);
+                        connection.Weight = Utils.Clamp(connection.Weight, 15.0);
+
                     }
                 }
                 
@@ -630,6 +646,7 @@ namespace TopolEvo.NEAT
 
             }
         }
+
 
         //checks if adding a connection would create a loop/cycle in the network
         //algo ported from https://github.com/CodeReclaimers/neat-python/blob/c2b79c88667a1798bfe33c00dd8e251ef8be41fa/neat/graphs.py
@@ -684,7 +701,7 @@ namespace TopolEvo.NEAT
                 pop.AddedConnections[existingConnection.GetID()] = newNodeID;
             }
 
-            var choices = new List<string>() { "sin", "gaussian", "sigmoid", "rescale" };
+            var choices = new List<string>() { "sin", "sigmoid", "gaussian"};
             var pick = choices[Config.globalRandom.Next(0, choices.Count)];
 
             var newNode = new NodeGene(newNodeID, "hidden", pick);

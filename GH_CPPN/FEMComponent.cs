@@ -128,7 +128,8 @@ namespace GH_CPPN
 
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
-        /// Icons need to be 24x24 pixels.
+        /// Icons need to be 24x24 
+        /// .
         /// </summary>
         protected override System.Drawing.Bitmap Icon
         {

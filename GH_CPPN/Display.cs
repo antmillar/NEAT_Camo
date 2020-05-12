@@ -1,6 +1,9 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+﻿using Accord.Imaging;
+using GH_CPPN;
+using MathNet.Numerics.LinearAlgebra;
 using NumSharp;
 using Rhino.Geometry;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -13,10 +16,37 @@ namespace TopolEvo.Display
         //properties
         public List<Mesh> Meshes { get; set; } = new List<Mesh>();
 
+        public Matrix<double> downSamplePixels(Matrix<double> values, int subdivisions, int sideRescale)
+        {
+            if (sideRescale <= 0) throw new ArgumentOutOfRangeException("invalid divisor value"); //need to improve this
+
+            var downsampled = Matrix<double>.Build.Dense(values.RowCount / (sideRescale * sideRescale), values.ColumnCount);
+            var count = 0;
+            for (int i = 0; i < subdivisions; i+= sideRescale)
+            {
+                for (int j = 0; j < subdivisions; j+= sideRescale)
+                {
+                    downsampled[count, 0] = values[j + i * subdivisions, 0];
+
+                    if(values.ColumnCount == 3)
+                    {
+                        downsampled[count, 1] = values[j + i * subdivisions, 1];
+                        downsampled[count, 2] = values[j + i * subdivisions, 2];
+                    }
+                    count++;
+                }
+            }
+
+            return downsampled;
+        }
 
         //constructor
         public Mesh Create(Matrix<double> values, int subdivisions, double width, double xCenter = 0, double yCenter = 0)
         {
+            int rescale = 1;
+            values = downSamplePixels(values, subdivisions, rescale);
+
+            subdivisions = subdivisions / rescale;
             double size = width / subdivisions;
 
             for (int i = 0; i < subdivisions; i++)
@@ -41,11 +71,22 @@ namespace TopolEvo.Display
             for (int i = 0; i < Meshes.Count; i++)
 
             {
-                double col = values[i, 0];
-                if (col < 0.0) col = 0.0;
-                if (col > 1.0) col = 1.0;
-                int intCol = (int)(col * 255);
-                Color color = Color.FromArgb(intCol, intCol, intCol);
+                double col;
+                int[] cols = new int[values.ColumnCount];
+
+                for (int j = 0; j < values.ColumnCount; j++)
+                {
+                    col = values[i, j];
+                    //if (col < 0.0) col = 0.0;
+                    //if (col > 1.0) col = 1.0;
+                    cols[j] = ((int)(col * 255));
+                }
+
+                Color color = new Color();
+
+                if (values.ColumnCount == 1) color = Color.FromArgb(cols[0], cols[0], cols[0]); // ColorScale.ColorFromHSL(cols[0], cols[0], cols[0]);
+                if (values.ColumnCount == 3) color = Color.FromArgb(cols[0], cols[1], cols[2]); // ColorScale.ColorFromHSL(cols[0], cols[1], cols[2]);
+
 
                 Color[] colors = Enumerable.Repeat(color, 4).ToArray();
                 Meshes[i].VertexColors.AppendColors(colors);

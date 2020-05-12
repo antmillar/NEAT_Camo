@@ -13,6 +13,7 @@ using TopolEvo.Speciation;
 using TopolEvo.Display;
 using TopolEvo.Fitness;
 using ImageInfo;
+using System.Threading.Tasks;
 
 namespace GH_CPPN
 {
@@ -84,6 +85,9 @@ namespace GH_CPPN
             int generations = 1;
             bool targetIs2D = true;
             bool targetIs3D = false;
+            bool targetIsColor = false;
+            var final = new Mesh();
+
 
             DA.GetData(0, ref button);
             DA.GetData(1, ref generations);
@@ -92,10 +96,9 @@ namespace GH_CPPN
             DA.GetData(4, ref popSize);
             DA.GetData(5, ref dims);
 
-            coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims);
-            coords = PopulateCoords(subdivisions, dims);
-            metrics = Metrics.Pattern;
-
+            coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims + 1);
+            coords = PopulateCoords(subdivisions, dims + 1);
+            metrics = Metrics.Gabor; //Metrics.Hue | Metrics.HueVar | Metrics.Luminance | Metrics.Contrast | Metrics.Sat | Metrics.SatVar ;
             //if there is a target shape, rescale to [-0.5, 0.5]
             if (targetIs3D)
             {
@@ -112,12 +115,23 @@ namespace GH_CPPN
                 if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
             }
 
-            //if there is a target shape, rescale to [-0.5, 0.5]
+            //if there is a target shape, rescale to[-0.5, 0.5]
             if (targetIs2D)
             {
-                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
+                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\grass2.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
-                targetValues = Fitness.PixelsFromImage(subdivisions * 4, coords, bmTarget);
+                targetValues = Fitness.RGBFromImage(subdivisions * 4, bmTarget, false);
+                var occCount = targetValues.ColumnSums().Sum();
+
+                if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
+            }
+
+            //if there is a target shape, rescale to [-0.5, 0.5]
+            if (targetIsColor)
+            {
+                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\grass2.jpg");
+                Bitmap bmTarget = new Bitmap(imageTarget);
+                targetValues = Fitness.RGBFromImage(subdivisions * 4, bmTarget, true);
                 var occCount = targetValues.ColumnSums().Sum();
 
                 if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
@@ -126,45 +140,69 @@ namespace GH_CPPN
             //on first run, initialise population
             if (!init)
             {
+                Fitness.bowModel = null;
                 perfTimer = new Stopwatch();
                 perfTimer.Start();
 
                 init = true;
-                pop = new Population(popSize, dims);
+                pop = new Population(popSize, dims + 1);
 
             }
 
             //paint mesh using outputs
 
+
             else if (button)
             {
                 perfTimer = new Stopwatch();
                 perfTimer.Start();
-
+                
                 Run(generations , subdivisions, popSize);
 
                 meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 
                 perfTimer.Stop();
+
+
             }
 
             if (targetIs3D) voxelsTarget = Draw3DTarget(targetValues, subdivisions);
-            if (targetIs2D) voxelsTarget = Draw2DTarget(targetValues, subdivisions * 4);
+            //if (targetIs2D) voxelsTarget = Draw2DTarget(targetValues, subdivisions * 4);
 
-
+            if (outputs.Count > 0)
+            {
+                final = Impose(targetValues, outputs[pop.Genomes[0].ID], 4 * subdivisions, subdivisions);
+                var temp = Fitness.Superimpose(targetValues, outputs[pop.Genomes[0].ID], 4 * subdivisions, subdivisions);
+            }
             var topologies = pop.Genomes.Select(i => i.ToString()).ToList();
 
             //output data from GH component
             DA.SetDataList(0, meshes);
             DA.SetDataList(1, fits);
             DA.SetDataList(2, topologies);
-            DA.SetData(3, voxelsTarget);
+            DA.SetData(3, final);
             DA.SetData(4, perfTimer.Elapsed.ToString());
             DA.SetDataList(5, femModels);
             DA.SetData(6, pop.Genomes.Select(a => a.Fitness).Average());
         }
 
+        private Mesh Impose(Matrix<double> habitat, Matrix<double> prey, int subdivisionsHabitat, int subdivisionsPrey)
+        {
 
+            for (int i = 0; i < subdivisionsPrey; i++)
+            {
+                for (int j = 0; j < subdivisionsPrey; j++)
+                {
+                    habitat[j + i * subdivisionsHabitat + 150 + 150 * subdivisionsHabitat, 0] = prey[j + i * subdivisionsPrey, 0];
+                }
+            }
+
+            var drawing = new Drawing();
+            var mesh = drawing.Create(habitat,subdivisionsHabitat, 10.0 * 4, -10.0 * 4 - 10, 0);
+
+            return mesh;
+
+        }
         private void Run(int generations, int subdivisions, int popSize)
         {
             for (int i = 0; i < generations; i++)
@@ -206,6 +244,9 @@ namespace GH_CPPN
             return mesh;
         }
 
+
+
+
         private List<Mesh> GenerateMeshes(Population pop, Dictionary<int, Matrix<double>> outputs, int subdivisions, int popSize)
         {
             meshes.Clear();
@@ -214,12 +255,13 @@ namespace GH_CPPN
             int gridWidth = Math.Min(10, popSize);
             int gridDepth = popSize / gridWidth + 1;
             int padding = 10;
-            int maxDisplay = Math.Min(20, popSize);
+            int maxDisplay = Math.Min(50, popSize);
 
             var count = 0;
 
             for (int i = 0; i < gridDepth; i++)
             {
+
                 for (int j = 0; j < gridWidth; j++)
                 {
                     if(count < maxDisplay)
@@ -297,35 +339,56 @@ namespace GH_CPPN
 
             if (dims == 2)
             {
-                for (int i = -shift; i < shift; i++)
+                for (int i = 0; i < subdivisions; i++)
                 {
-                    for (int j = -shift; j < shift; j++)
+                    for (int j = 0; j < subdivisions; j++)
                     {
                         //coords are in range [-0.5, 0.5]
-                        coords[(i + shift) * subdivisions + j + shift, 0] = 1.0 * i / subdivisions;
-                        coords[(i + shift) * subdivisions + j + shift, 1] = 1.0 * j / subdivisions;
+                        coords[i * subdivisions + j , 0] = 1.0 * i / subdivisions;
+                        coords[i * subdivisions + j , 1] = 1.0 * j / subdivisions;
+
                     }
                 }
+                coords -= 0.5;
             }
 
-            else if(dims == 3)
+            else if (dims == 3)
             {
                 for (int i = 0; i < subdivisions; i++)
                 {
                     for (int j = 0; j < subdivisions; j++)
                     {
-                        for (int k = 0; k < subdivisions; k++)
-                        {
-                            //coords are in range [-0.5, 0.5]
-                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * k / subdivisions;
-                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 1] = 1.0 * j / subdivisions;
-                            coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * i / subdivisions;
-                        }
+                        var xCoord = 1.0 * i / subdivisions - 0.5;
+                        var yCoord = 1.0 * j / subdivisions - 0.5;
+                        //coords are in range [-0.5, 0.5]
+                        coords[i * subdivisions + j, 0] = xCoord;
+                        coords[i * subdivisions + j, 1] = yCoord;
+                        coords[i * subdivisions + j, 2] = Math.Sqrt(Math.Pow(xCoord, 2) + Math.Pow(yCoord, 2)); //distance from center
+
                     }
                 }
-
-                coords -= 0.5;
             }
+
+            //else if(dims == 3)
+            //{
+            //    for (int i = 0; i < subdivisions; i++)
+            //    {
+            //        for (int j = 0; j < subdivisions; j++)
+            //        {
+            //            for (int k = 0; k < subdivisions; k++)
+            //            {
+            //                //coords are in range [-0.5, 0.5]
+            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * k / subdivisions;
+            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 1] = 1.0 * j / subdivisions;
+            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * i / subdivisions;
+            //            }
+            //        }
+            //    }
+               //coords -= 0.5;
+            //}
+
+
+
 
             return coords;
         }

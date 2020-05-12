@@ -22,10 +22,12 @@ namespace TopolEvo.Utilities
         /// <summary>
         /// Clamp values within a +- range
         /// </summary>
-        internal static void Clamp(double weight, double rangeMax)
+        internal static double Clamp(double weight, double rangeMax)
         {
             if (weight > rangeMax) weight = rangeMax;
             if (weight < -rangeMax) weight = -rangeMax;
+
+            return weight;
         }
 
         /// <summary>

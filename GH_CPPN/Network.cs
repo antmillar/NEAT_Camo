@@ -19,7 +19,7 @@ namespace TopolEvo.Architecture
     public class Network : Model
     {
         int _inputCount;
-        int _outputNode;
+        List<int> outputNodes = new List<int>();
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
         public List<List<int>> _layersEndNodes;
@@ -66,7 +66,7 @@ namespace TopolEvo.Architecture
 
                 else if (nodeGene._type == "output")
                 {
-                    _outputNode = nodeGene._id;
+                    outputNodes.Add(nodeGene._id);
                 }
 
             }
@@ -194,8 +194,18 @@ namespace TopolEvo.Architecture
                 layerOutputs = CalculateLayer(i, inputs.RowCount);
             }
 
+            //need to get the activations from the output layers
+
+            var outputCount = outputNodes.Count;
+            var outputs = Matrix<double>.Build.Dense(inputs.RowCount, outputCount);
+
+            for (int i = 0; i < outputCount; i++)
+            {
+                outputs.SetColumn(i, activations[outputNodes[i]]);
+            }
+
             //last iteration of loop returns the outputs from the final layer
-            var output = layerOutputs;
+            var output = outputs;
 
             if(output.ColumnCount == 2)
             {
@@ -394,7 +404,22 @@ namespace TopolEvo.Architecture
 
         internal static Activation Gaussian()
         {
-            return new Activation((value) => Math.Exp(-(value * value)), "Gaussian");
+            return new Activation((value) => 0.4 *  Math.Exp(-0.5 * (value * value)), "Gaussian");
+        }
+
+        internal static Activation Square()
+        {
+            return new Activation((value) => (value * value), "Square");
+        }
+
+        internal static Activation Cos()
+        {
+            return new Activation(Trig.Cos, "Cos");
+        }
+
+        internal static Activation Linear()
+        {
+            return new Activation((value) => (value), "Linear");
         }
     }
 

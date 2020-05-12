@@ -73,7 +73,7 @@ namespace GH_CPPN
             coords = Matrix<double>.Build.Dense((int)Math.Pow(subdivs, 2), 2);
             coords = PopulateCoords(subdivs, 2);
 
-            Bitmap a = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\bark1.jpg"));
+            Bitmap a = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\grass2.jpg"));
             Bitmap b = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\lena512.bmp"));
 
             //Accord.Imaging.Image.SetGrayscalePalette(a);
@@ -97,7 +97,7 @@ namespace GH_CPPN
             double[][] features = bow.Transform(images);
             int totalDescriptors = bow.Statistics.TotalNumberOfDescriptors;
 
-            var occupancyTarget = Fitness.PixelsFromImage(subdivs, coords, filtered);
+            var occupancyTarget = Fitness.HSLFromImage(subdivs, filtered, false);
             var backgroundImage = GenerateImageTarget(occupancyTarget, subdivs);
             var test = ImageAnalysis.BitmapFromPixels(occupancyTarget, subdivs);
 

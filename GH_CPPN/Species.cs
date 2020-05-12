@@ -80,7 +80,7 @@ namespace TopolEvo.Speciation
                     var closest = distances.IndexOf(distances.Min());
 
                     //should have a max number of species maybe
-                    if (distances.Min() > 12)
+                    if (distances.Min() > 15)
                     {
                         var species = new Species();
                         species.Add(genome);
@@ -139,6 +139,12 @@ namespace TopolEvo.Speciation
             {
                 SpeciesList.Remove(s);
             }
+
+            //if(SpeciesList.Count > 5)
+            //{
+            //    SpeciesList = SpeciesList.OrderByDescending(x => x.Fitness).ToList();
+            //    SpeciesList = SpeciesList.Take(5).ToList();
+            //}
 
             return SpeciesList;
         }
