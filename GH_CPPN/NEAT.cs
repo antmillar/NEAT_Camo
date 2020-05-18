@@ -16,12 +16,12 @@ namespace TopolEvo.NEAT
     public static class Config
     {
         internal const string fitnessTarget = "min";
-        internal static double survivalCutoff = 0.25;
+        internal static double survivalCutoff = 0.35;
         internal static double rateAsexual = 0.25;
 
         internal const double rateMutateConnection = 0.4;
-        internal static double rateAndNode = 0.2;
-        internal static double rateAddConnection = 0.3; //in higher pop can increase this
+        internal static double rateAddNode = 0.1;
+        internal static double rateAddConnection = 0.2; //in higher pop can increase this
         internal static double ratePermuteOrReset = 0.9;
 
         internal static readonly System.Random globalRandom = new System.Random(); 
@@ -166,7 +166,7 @@ namespace TopolEvo.NEAT
 
                 var r2 = Config.globalRandom.NextDouble();
 
-                if (r2 < Config.rateAndNode)
+                if (r2 < Config.rateAddNode)
                 {
                     child.MutateAddNode(this);
                 }
@@ -606,7 +606,7 @@ namespace TopolEvo.NEAT
             var rand = Config.globalRandom.Next(0, Nodes.Count);
             var node = Nodes[rand];
 
-            var choices = new List<string>() { "tanh"};
+            var choices = new List<string>() { "tanh", "sin", "square"};
             var pick = choices[Config.globalRandom.Next(0, choices.Count)];
 
             if(!(node._type == "output"))
@@ -755,7 +755,7 @@ namespace TopolEvo.NEAT
                 pop.AddedConnections[existingConnection.GetID()] = newNodeID;
             }
 
-            var choices = new List<string>() { "sin", "sigmoid", "gaussian" };
+            var choices = new List<string>() { "sin", "rescale", "square" };
             var pick = choices[Config.globalRandom.Next(0, choices.Count)];
 
             var newNode = new NodeGene(newNodeID, "hidden", pick);
@@ -770,6 +770,8 @@ namespace TopolEvo.NEAT
 
             //new connection out has weight equal to old connection
             var newConnectionOut = new ConnectionGene(newNode._id, existingConnection.OutputNode, existingConnection.Weight);
+
+            //should improve this, using 9999 to signify bias is kinda ugly
             var newConnectionBias = new ConnectionGene(9999, newNode._id, 1.0);
 
             Nodes.Add(newNode);
@@ -779,8 +781,6 @@ namespace TopolEvo.NEAT
 
             Connections.Remove(existingConnection);
 
-            //existingConnection.Enabled = false;
-            //existingConnection.Weight = 0.0;
 
             CalculateInputs();
         }

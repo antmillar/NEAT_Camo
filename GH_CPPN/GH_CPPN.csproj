@@ -103,8 +103,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ImageAnalysis.cs" />
-    <Compile Include="ImageAnalysisComp.cs" />
+    <Compile Include="Image.cs" />
     <Compile Include="Species.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="FEM.cs" />

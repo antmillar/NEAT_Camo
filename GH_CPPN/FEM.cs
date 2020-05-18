@@ -8,68 +8,14 @@ using Rhino.Geometry;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using TopolEvo.Display;
 
 namespace GH_CPPN
 {
+
+    //Not used in the camouflage version, was used in 3d voxel grids
     public static class FEM
     {
-
-        public static Tuple<Mesh, List<Line>> MakeFrame(Model model, List<double> displacements)
-        {
-
-            var points = new List<Box>();
-            var beams = new List<Line>();
-            var meshes = new List<Mesh>();
-            Mesh meshComb = new Mesh();
-
-            if (model is null | displacements is null) return new Tuple<Mesh, List<Line>>(meshComb, beams);
-
-            foreach (var node in model.Nodes)
-            {
-                var size = 0.02; //1.0 / xSize;
-                var bbox = new BoundingBox(-size, -size, -size, size, size, size);
-                var box = new Box(bbox);
-
-                box.Transform(Transform.Translation(node.Location.X, node.Location.Y, node.Location.Z));
-                var temp = new Mesh();
-
-                points.Add(box);
-            }
-
-            foreach(var bar in model.Elements)
-            {
-                var start = bar.Nodes[0].Location;
-                var end = bar.Nodes[1].Location;
-
-                var line = new Line(new Point3d(start.X, start.Y, start.Z), new Point3d(end.X, end.Y, end.Z));
-                beams.Add(line);
-            }
-
-
-            var maxdisp = displacements.Select(i => Math.Abs(i)).Max();
-            var scale = 0.33 / maxdisp;
-
-            for (int i = 0; i < points.Count; i++)
-            {
-
-                var mesh = Mesh.CreateFromBox(points[i], 1, 1, 1);
-
-                Color color = ColorScale.ColorFromHSL((0.33 - scale * Math.Abs(displacements[i])), 1.0, 0.5);
-                Color[] colors = Enumerable.Repeat(color, 24).ToArray();
-
-
-                mesh.VertexColors.AppendColors(colors);
-                meshes.Add(mesh.DuplicateMesh());
-
-            }
-
-
-            meshComb.Append(meshes);
-
-
-            return new Tuple<Mesh, List<Line>>(meshComb, beams);
-
-        }
 
         public static Model CreateModel(Matrix<double> coords, Matrix<double> occupancy, int xSize, int ySize, int zSize)
         {
@@ -161,15 +107,6 @@ namespace GH_CPPN
             model.Nodes.AddRange(nodes.Values);
             model.Elements.Add(elements.ToArray());
 
-            //Applying constraints
-
-            //foreach (KeyValuePair<int, Node> keyValuePair in nodes)
-            //{
-            //    //keyValuePair.Value.Constraints = new Constraint(DofConstraint.Fixed, DofConstraint.Fixed, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released, DofConstraint.Released);
-            //    keyValuePair.Value.Constraints = Constraint.RotationFixed;
-            //}
-
-
             //Applying load
             var force = new Force(0, -5000, -0, 0, 0, 0);
 
@@ -180,12 +117,64 @@ namespace GH_CPPN
             return model;
         }
 
+        public static Tuple<Mesh, List<Line>> MakeFrame(Model model, List<double> displacements)
+        {
+            var points = new List<Box>();
+            var beams = new List<Line>();
+            var meshes = new List<Mesh>();
+            Mesh meshComb = new Mesh();
+
+            if (model is null | displacements is null) return new Tuple<Mesh, List<Line>>(meshComb, beams);
+
+            foreach (var node in model.Nodes)
+            {
+                var size = 0.02; //1.0 / xSize;
+                var bbox = new BoundingBox(-size, -size, -size, size, size, size);
+                var box = new Box(bbox);
+
+                box.Transform(Transform.Translation(node.Location.X, node.Location.Y, node.Location.Z));
+                var temp = new Mesh();
+
+                points.Add(box);
+            }
+
+            foreach (var bar in model.Elements)
+            {
+                var start = bar.Nodes[0].Location;
+                var end = bar.Nodes[1].Location;
+
+                var line = new Line(new Point3d(start.X, start.Y, start.Z), new Point3d(end.X, end.Y, end.Z));
+                beams.Add(line);
+            }
+
+
+            var maxdisp = displacements.Select(i => Math.Abs(i)).Max();
+            var scale = 0.33 / maxdisp;
+
+            for (int i = 0; i < points.Count; i++)
+            {
+
+                var mesh = Mesh.CreateFromBox(points[i], 1, 1, 1);
+
+                Color color = ColorScale.ColorFromHSL((0.33 - scale * Math.Abs(displacements[i])), 1.0, 0.5);
+                Color[] colors = Enumerable.Repeat(color, 24).ToArray();
+
+
+                mesh.VertexColors.AppendColors(colors);
+                meshes.Add(mesh.DuplicateMesh());
+
+            }
+
+            meshComb.Append(meshes);
+
+            return new Tuple<Mesh, List<Line>>(meshComb, beams);
+
+        }
+
         public static List<double> GetDisplacements(Model model)
         {
-
             if (model is null) return null;
             var displacements = new List<double>();
-
 
             foreach (Node node in model.Nodes)
             {
@@ -221,153 +210,7 @@ namespace GH_CPPN
         {
             return Math.Sqrt((Math.Pow((stress.Fx - stress.Fy), 2) + Math.Pow((stress.Fx - stress.Fy), 2) + Math.Pow((stress.Fx - stress.Fy), 2)) / 2);
         }
-
-        public static string Example1()
-        {
-            Console.WriteLine("Example 1: Simple 3D truss with four members");
-
-
-            // Initiating Model, Nodes and Members
-            var model = new Model();
-
-            var n1 = new Node(1, 1, 0);
-            n1.Label = "n1";//Set a unique label for node
-            var n2 = new Node(-1, 1, 0) { Label = "n2" };//using object initializer for assigning Label
-            var n3 = new Node(1, -1, 0) { Label = "n3" };
-            var n4 = new Node(-1, -1, 0) { Label = "n4" };
-            var n5 = new Node(0, 0, 1) { Label = "n5" };
-
-            var e1 = new TrussElement2Node(n1, n5) { Label = "e1" };
-            var e2 = new TrussElement2Node(n2, n5) { Label = "e2" };
-            var e3 = new TrussElement2Node(n3, n5) { Label = "e3" };
-            var e4 = new TrussElement2Node(n4, n5) { Label = "e4" };
-            //Note: labels for all members should be unique, else you will receive InvalidLabelException when adding it to model
-
-            e1.A = e2.A = e3.A = e4.A = 9e-4;
-            e1.E = e2.E = e3.E = e4.E = 210e9;
-
-            model.Nodes.Add(n1, n2, n3, n4, n5);
-            model.Elements.Add(e1, e2, e3, e4);
-
-            //Applying restrains
-
-
-            n1.Constraints = n2.Constraints = n3.Constraints = n4.Constraints = Constraint.Fixed;
-            n5.Constraints = Constraint.RotationFixed;
-
-
-            //Applying load
-            var force = new Force(0, 0, -1000, 0, 0, 0);
-            n5.Loads.Add(new NodalLoad(force));//adds a load with LoadCase of DefaultLoadCase to node loads
-
-            //Adds a NodalLoad with Default LoadCase
-
-            model.Solve();
-
-            var r1 = n1.GetSupportReaction();
-            var r2 = n2.GetSupportReaction();
-            var r3 = n3.GetSupportReaction();
-            var r4 = n4.GetSupportReaction();
-
-
-            var rt = r1 + r2 + r3 + r4;//shows the Fz=1000 and Fx=Fy=Mx=My=Mz=0.0
-
-            Console.WriteLine("Total reactions SUM :" + rt.ToString());
-
-            return rt.ToString();
-        }
-
-
-        public static Matrix<double> PopulateCoords(int xSize, int ySize, int zSize, int dims)
-        {
-            //populate coords
-
-            var coords = Matrix<double>.Build.Dense(xSize * ySize * zSize, 3);
-
-            //var shift = subdivisions / 2;
-
-            //if (dims == 2)
-            //{
-            //    for (int i = -shift; i < shift; i++)
-            //    {
-            //        for (int j = -shift; j < shift; j++)
-            //        {
-            //            //coords are in range [-0.5, 0.5]
-            //            coords[(i + shift) * subdivisions + j + shift, 0] = 1.0 * i / subdivisions;
-            //            coords[(i + shift) * subdivisions + j + shift, 1] = 1.0 * j / subdivisions;
-            //        }
-            //    }
-            //}
-
-            if (dims == 3)
-            {
-                for (int i = 0; i < zSize; i++)
-                {
-                    for (int j = 0; j < ySize; j++)
-                    {
-                        for (int k = 0; k < xSize; k++)
-                        {
-                            //coords are in range [-0.5, 0.5]
-
-                            coords[i * xSize * ySize + j * xSize + k, 0] = 1.0 * k / (xSize - 1);
-                            coords[i * xSize * ySize + j * xSize + k, 1] = 1.0 * j / (ySize - 1);
-                            coords[i * xSize * ySize + j * xSize + k, 2] = 1.0 * i / (zSize - 1);
-                        }
-                    }
-                }
-
-                coords -= 0.5;
             }
 
-            return coords;
-        }
-    }
-
-    //I took this code from the internet @ http://james-ramsden.com/convert-from-hsl-to-rgb-colour-codes-in-c/
-    public static class ColorScale
-    {
-        public static Color ColorFromHSL(double h, double s, double l)
-        {
-            double r = 0, g = 0, b = 0;
-            if (l != 0)
-            {
-                if (s == 0)
-                    r = g = b = l;
-                else
-                {
-                    double temp2;
-                    if (l < 0.5)
-                        temp2 = l * (1.0 + s);
-                    else
-                        temp2 = l + s - (l * s);
-
-                    double temp1 = 2.0 * l - temp2;
-
-                    r = GetColorComponent(temp1, temp2, h + 1.0 / 3.0);
-                    g = GetColorComponent(temp1, temp2, h);
-                    b = GetColorComponent(temp1, temp2, h - 1.0 / 3.0);
-                }
-            }
-            return Color.FromArgb((int)(255 * r), (int)(255 * g), (int)(255 * b));
-
-        }
-
-        private static double GetColorComponent(double temp1, double temp2, double temp3)
-        {
-            if (temp3 < 0.0)
-                temp3 += 1.0;
-            else if (temp3 > 1.0)
-                temp3 -= 1.0;
-
-            if (temp3 < 1.0 / 6.0)
-                return temp1 + (temp2 - temp1) * 6.0 * temp3;
-            else if (temp3 < 0.5)
-                return temp2;
-            else if (temp3 < 2.0 / 3.0)
-                return temp1 + ((temp2 - temp1) * ((2.0 / 3.0) - temp3) * 6.0);
-            else
-                return temp1;
-        }
-    }
 
 }

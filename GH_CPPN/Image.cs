@@ -6,15 +6,13 @@ using Accord.Imaging;
 using MathNet.Numerics.LinearAlgebra;
 using System.Linq;
 using Accord.Math;
-using GH_CPPN;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using TopolEvo.Fitness;
-using TopolEvo.NEAT;
+using TopolEvo.Display;
 
-namespace ImageInfo
+namespace ImageProcessing
 {
-    public static class ImageAnalysis
+    public static class Image
     {
         //would be better to move these static variables into another class, currently they're not reinitialised unless app is restarted
         public static Bitmap targetBitmap = null;
@@ -45,7 +43,6 @@ namespace ImageInfo
                         var lum = HSL.FromRGB(rgb).Luminance;
                         values[h * i + j] = lum;
                     }
-
                 }
             }
 
@@ -216,7 +213,7 @@ namespace ImageInfo
 
             foreach (var output in outputs)
             {
-                var bitmap = ImageAnalysis.BitmapFromPixels(output.Value, subdivisions);
+                var bitmap = Image.BitmapFromPixels(output.Value, subdivisions);
                 bitmap.Save(root + output.Key.ToString()  + ".png");
             }
         }
@@ -285,27 +282,27 @@ namespace ImageInfo
         /// <returns></returns>
         public static BagOfVisualWords<Accord.IFeatureDescriptor<double[]>, double[], Accord.MachineLearning.KMeans, Accord.Imaging.FastRetinaKeypointDetector> CreateBowModel()
         {
-            if (ImageAnalysis.targetBitmap == null)
+            if (Image.targetBitmap == null)
             {
-                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\grass.jpg");
+                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Size size = new Size(200, 200);
-                ImageAnalysis.targetBitmap = new Bitmap(imageTarget, size);
+                Image.targetBitmap = new Bitmap(imageTarget, size);
             }
 
 
             var bow = BagOfVisualWords.Create(new FastRetinaKeypointDetector(), numberOfWords: 10);
-            Bitmap[] images = new Bitmap[1] { ImageAnalysis.targetBitmap };
+            Bitmap[] images = new Bitmap[1] { Image.targetBitmap };
 
             bow.Learn(images);
 
 
-            if (ImageAnalysis.targetBitmapScaled == null)
+            if (Image.targetBitmapScaled == null)
             {
-                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\grass.jpg");
+                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Size size = new Size(100, 100);
-                ImageAnalysis.targetBitmapScaled = new Bitmap(imageTarget, size);
+                Image.targetBitmapScaled = new Bitmap(imageTarget, size);
 
-                ImageAnalysis.scaledFeatureCount = bow.Transform(new Bitmap[1] { ImageAnalysis.targetBitmapScaled })[0].Sum();
+                Image.scaledFeatureCount = bow.Transform(new Bitmap[1] { Image.targetBitmapScaled })[0].Sum();
 
             }
             return bow;
@@ -321,7 +318,7 @@ namespace ImageInfo
 
             Bitmap[] images = new Bitmap[1 + outputs.Count];
 
-            images[0] = ImageAnalysis.targetBitmap;
+            images[0] = Image.targetBitmap;
 
             var count = 1;
 
@@ -330,7 +327,7 @@ namespace ImageInfo
             //convert each of the outputs into a bitmap
             foreach (var key in outputs.Keys)
             {
-                var outputBitmap = ImageAnalysis.BitmapFromPixels(outputs[key], subdivisions);
+                var outputBitmap = Image.BitmapFromPixels(outputs[key], subdivisions);
                 images[count] = outputBitmap;
                 mappings[count] = key;
                 count++;
@@ -339,14 +336,14 @@ namespace ImageInfo
             //extract features for each image
             double[][] features = bow.Transform(images);
 
-            var rescaler = features[0].Sum() / ImageAnalysis.scaledFeatureCount;
+            var rescaler = features[0].Sum() / Image.scaledFeatureCount;
             //rescaler = 1.0;
 
             var dists = new Dictionary<int, double>();
 
             for (int i = 1; i < outputs.Count + 1; i++)
             {
-                var dist = ImageAnalysis.FeatureDistance(features[0].Select(x => x / rescaler).ToArray(), features[i]);
+                var dist = Image.FeatureDistance(features[0].Select(x => x / rescaler).ToArray(), features[i]);
                 dists[mappings[i]] = dist;
             }
 

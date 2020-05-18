@@ -1,7 +1,4 @@
-﻿using Accord.Imaging;
-using GH_CPPN;
-using MathNet.Numerics.LinearAlgebra;
-using NumSharp;
+﻿using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
@@ -10,12 +7,13 @@ using System.Linq;
 
 namespace TopolEvo.Display
 {
-
+    //Handles display of images as meshes
     public class Drawing
     {
         //properties
         public List<Mesh> Meshes { get; set; } = new List<Mesh>();
 
+        //downsample pixels so can display quicker during iteration
         public Matrix<double> downSamplePixels(Matrix<double> values, int subdivisions, int sideRescale)
         {
             if (sideRescale <= 0) throw new ArgumentOutOfRangeException("invalid divisor value"); //need to improve this
@@ -43,7 +41,7 @@ namespace TopolEvo.Display
         //constructor
         public Mesh Create(Matrix<double> values, int subdivisions, double width, double xCenter = 0, double yCenter = 0)
         {
-            int rescale = 1;
+            int rescale = 2;
             values = downSamplePixels(values, subdivisions, rescale);
 
             subdivisions = subdivisions / rescale;
@@ -77,8 +75,6 @@ namespace TopolEvo.Display
                 for (int j = 0; j < values.ColumnCount; j++)
                 {
                     col = values[i, j];
-                    //if (col < 0.0) col = 0.0;
-                    //if (col > 1.0) col = 1.0;
                     cols[j] = ((int)(col * 255));
                 }
 
@@ -100,13 +96,13 @@ namespace TopolEvo.Display
         }
     }
 
-    
+    /// <summary>
+    /// class to generate a voxel grid
+    /// </summary>
     public class Volume
     {
-
         //properties
         public List<Mesh> Meshes { get; set; } = new List<Mesh>();
-
         
         //methods
         public Mesh Create(Matrix<double> output, int subdivisions, int xCenter = 0, int yCenter = 0, int zCenter = 0)
@@ -160,7 +156,55 @@ namespace TopolEvo.Display
 
             return combinedMesh;
         }
+    }
 
 
+    //I took this code from the internet @ http://james-ramsden.com/convert-from-hsl-to-rgb-colour-codes-in-c/
+    public static class ColorScale
+    {
+
+        //https://stackoverflow.com/questions/4793729/rgb-to-hsl-and-back-calculation-problems
+        public static Color ColorFromHSL(double h, double s, double l)
+        {
+            double r = 0, g = 0, b = 0;
+            if (l != 0)
+            {
+                if (s == 0)
+                    r = g = b = l;
+                else
+                {
+                    double temp2;
+                    if (l < 0.5)
+                        temp2 = l * (1.0 + s);
+                    else
+                        temp2 = l + s - (l * s);
+
+                    double temp1 = 2.0 * l - temp2;
+
+                    r = GetColorComponent(temp1, temp2, h + 1.0 / 3.0);
+                    g = GetColorComponent(temp1, temp2, h);
+                    b = GetColorComponent(temp1, temp2, h - 1.0 / 3.0);
+                }
+            }
+            return Color.FromArgb((int)(255 * r), (int)(255 * g), (int)(255 * b));
+
+        }
+
+        private static double GetColorComponent(double temp1, double temp2, double temp3)
+        {
+            if (temp3 < 0.0)
+                temp3 += 1.0;
+            else if (temp3 > 1.0)
+                temp3 -= 1.0;
+
+            if (temp3 < 1.0 / 6.0)
+                return temp1 + (temp2 - temp1) * 6.0 * temp3;
+            else if (temp3 < 0.5)
+                return temp2;
+            else if (temp3 < 2.0 / 3.0)
+                return temp1 + ((temp2 - temp1) * ((2.0 / 3.0) - temp3) * 6.0);
+            else
+                return temp1;
+        }
     }
 }

@@ -7,7 +7,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using TopolEvo.NEAT;
-using ImageInfo;
+using ImageProcessing;
 using TopolEvo.Utilities;
 using Accord.Imaging;
 
@@ -35,7 +35,7 @@ namespace TopolEvo.Fitness
         Hue = 4096,
         Sat = 8192,
         HueVar = 16384,
-        SatVar = 16384 * 2,
+        SatVar = 32768,
         Template = 65536,
     }
 
@@ -43,12 +43,10 @@ namespace TopolEvo.Fitness
     {
 
         /// <summary> 
-        /// Static class where user create a fitness function, must take input genomes and assign the fitness attribute of each genome
+        /// Static class where user can create a fitness functions, must take input genomes and assign the fitness attribute of each genome
         /// </summary>
-        /// 
 
         public static BagOfVisualWords<Accord.IFeatureDescriptor<double[]>, double[], Accord.MachineLearning.KMeans, Accord.Imaging.FastRetinaKeypointDetector> bowModel = null;
-
 
         public static List<string> Function(Population pop, Dictionary<int, Matrix<double>> outputs, Matrix<double> coords, Matrix<double> outputTargets, int subdivisions, Metrics metrics)
         {
@@ -79,20 +77,10 @@ namespace TopolEvo.Fitness
                 var vals = outputValues.ToRowMajorArray();
 
 
-                //if ((metrics & Metrics.Pattern) == Metrics.Pattern)
-                //{
-
-                //    var featDistance = ImageAnalysis.GetFeatureDistance(outputValues, outputTargets, subdivisions);
-
-
-                //    totalFitness += featDistance;
-                //    fitnessString += $" | Pattern : {Math.Round(featDistance, 2)}";
-                //}
-
                 if ((metrics & Metrics.Luminance) == Metrics.Luminance)
                 {
-                    var outputLum = ImageAnalysis.GetMeanLuminance(outputValues, subdivisions);
-                    var targetLum = ImageAnalysis.GetMeanLuminance(outputTargets, subdivisions);
+                    var outputLum = ImageProcessing.Image.GetMeanLuminance(outputValues, subdivisions);
+                    var targetLum = ImageProcessing.Image.GetMeanLuminance(outputTargets, subdivisions);
 
                     var absdiff =  Math.Abs(outputLum - targetLum);
 
@@ -105,8 +93,8 @@ namespace TopolEvo.Fitness
 
                 if ((metrics & Metrics.Contrast) == Metrics.Contrast)
                 {
-                    var outputContrast = ImageAnalysis.GetContrast(outputValues, subdivisions);
-                    var targetContrast = ImageAnalysis.GetContrast(outputTargets, subdivisions);
+                    var outputContrast = ImageProcessing.Image.GetContrast(outputValues, subdivisions);
+                    var targetContrast = ImageProcessing.Image.GetContrast(outputTargets, subdivisions);
 
                     var absdiff = Math.Abs(outputContrast - targetContrast);
 
@@ -121,7 +109,7 @@ namespace TopolEvo.Fitness
                 {
                     //var outputHue = ImageAnalysis.GetHue(outputValues, subdivisions);
                     //var targetHue = ImageAnalysis.GetHue(outputTargets, subdivisions);
-                    var temp = ImageAnalysis.GetHueDist(outputValues, outputTargets,subdivisions);
+                    var temp = ImageProcessing.Image.GetHueDist(outputValues, outputTargets, subdivisions);
 
                     //var outputHue = outputValues.Column(0).Average();
                     //var targetHue = outputTargets.Column(0).Average();
@@ -140,8 +128,8 @@ namespace TopolEvo.Fitness
 
                 if ((metrics & Metrics.HueVar) == Metrics.HueVar)
                 {
-                    var outputHue = ImageAnalysis.GetHueVar(outputValues, subdivisions);
-                    var targetHue = ImageAnalysis.GetHueVar(outputTargets, subdivisions);
+                    var outputHue = ImageProcessing.Image.GetHueVar(outputValues, subdivisions);
+                    var targetHue = ImageProcessing.Image.GetHueVar(outputTargets, subdivisions);
 
 
 
@@ -155,8 +143,8 @@ namespace TopolEvo.Fitness
 
                 if ((metrics & Metrics.Sat) == Metrics.Sat)
                 {
-                    var outputHue = ImageAnalysis.GetSat(outputValues, subdivisions);
-                    var targetHue = ImageAnalysis.GetSat(outputTargets, subdivisions);
+                    var outputHue = ImageProcessing.Image.GetSat(outputValues, subdivisions);
+                    var targetHue = ImageProcessing.Image.GetSat(outputTargets, subdivisions);
 
                     var absdiff = Math.Abs(outputHue - targetHue);
 
@@ -168,8 +156,8 @@ namespace TopolEvo.Fitness
 
                 if ((metrics & Metrics.SatVar) == Metrics.SatVar)
                 {
-                    var outputHue = ImageAnalysis.GetSatVar(outputValues, subdivisions);
-                    var targetHue = ImageAnalysis.GetSatVar(outputTargets, subdivisions);
+                    var outputHue = ImageProcessing.Image.GetSatVar(outputValues, subdivisions);
+                    var targetHue = ImageProcessing.Image.GetSatVar(outputTargets, subdivisions);
 
                     var absdiff = Math.Abs(outputHue - targetHue);
 
@@ -343,10 +331,10 @@ namespace TopolEvo.Fitness
 
                 if (Fitness.bowModel == null)
                 {
-                    Fitness.bowModel = ImageAnalysis.CreateBowModel();
+                    Fitness.bowModel = ImageProcessing.Image.CreateBowModel();
                 }
 
-                var featDistance = ImageAnalysis.GetFeatureDistances(occupancy, subdivisions, Fitness.bowModel);
+                var featDistance = ImageProcessing.Image.GetFeatureDistances(occupancy, subdivisions, Fitness.bowModel);
 
                 foreach (var key in featDistance.Keys)
                 {
@@ -416,7 +404,7 @@ namespace TopolEvo.Fitness
             }
 
             //pass the gabor edge filter over the combined pixels
-            var sum = ImageAnalysis.GaborFilter(central);
+            var sum = ImageProcessing.Image.GaborFilter(central);
 
             return sum;
 
@@ -425,13 +413,13 @@ namespace TopolEvo.Fitness
         {
 
             //create a new subselection (central 200 x 200 pixels) of the habitat to superimpose the prey (100 x 100) on
-            var central = Matrix<double>.Build.Dense(400 * 400, 1);
+            var central = Matrix<double>.Build.Dense(subdivisionsHabitat * subdivisionsHabitat, 1);
 
-            for (int i = 0; i < 400; i++)
+            for (int i = 0; i < subdivisionsHabitat; i++)
             {
-                for (int j = 0; j < 400; j++)
+                for (int j = 0; j < subdivisionsHabitat; j++)
                 {
-                    central[j + i * 400, 0] = habitat[j + i * subdivisionsHabitat, 0];
+                    central[j + i * subdivisionsHabitat, 0] = habitat[j + i * subdivisionsHabitat, 0];
                 }
             }
 
@@ -440,12 +428,12 @@ namespace TopolEvo.Fitness
             {
                 for (int j = 0; j < subdivisionsPrey; j++)
                 {
-                    central[j + i * 400 + 150 + 150 * 400, 0] = prey[j + i * subdivisionsPrey, 0];
+                    central[j + i * subdivisionsHabitat + 50 + 50 * subdivisionsHabitat, 0] = prey[j + i * subdivisionsPrey, 0];
                 }
             }
 
 
-            return ImageAnalysis.BitmapFromPixels(central, 400); ;
+            return ImageProcessing.Image.BitmapFromPixels(central, subdivisionsHabitat); ;
 
         }
 
@@ -580,22 +568,7 @@ namespace TopolEvo.Fitness
                     targets[i, 0] = 1.0;
                 }
 
-                //vert bar
-                //if (coords[i, 0] < -0.25 || coords[i, 0] > 0.25)
-                //{
-                //    targets[i, 0] = 1.0;
-                //}
-
-
-                //vert partition
-                //if (coords[i, 0] < 0.0)
-                //{
-                //    targets[i, 0] = 1.0;
-                //}
-
-                //all white
-
-                //targets[i, 0] = 1.0;
+ 
 
             }
 

@@ -10,7 +10,6 @@ using MathNet.Numerics;
 
 namespace TopolEvo.Architecture
 {
-
     public interface Model
     {
         Matrix<double> ForwardPass(Matrix<double> input);
@@ -55,6 +54,7 @@ namespace TopolEvo.Architecture
             _layersEndNodes = new List<List<int>>();
             _layersStartNodes = new List<List<int>>();
             _layersMatrices = new List<Matrix<double>>(); 
+
             //initialise the currentNodes with the input nodes
             //keep track of the output node (only one allowed)
             foreach (NEAT.NodeGene nodeGene in _genome.Nodes)
@@ -76,13 +76,9 @@ namespace TopolEvo.Architecture
 
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
         public HashSet<int> MakeLayer(HashSet<int> visitedNodes)
         {
             //could probably cache in here somehow?
-
             //add bias to each layer
             visitedNodes.Add(9999);
 
@@ -118,7 +114,6 @@ namespace TopolEvo.Architecture
             }
 
             //for each node, if ANY input is not in the visitedNodes, remove all of the connections to it.
-
             //keep only connections with inputs from current nodes
             currentLayer.RemoveAll(x => !nextNodes.Contains(x.OutputNode));
 
@@ -126,13 +121,11 @@ namespace TopolEvo.Architecture
             //recursively traverse the network until next nodes is empty
             if (nextNodes.Count == 0)
             {
-
                 return nextNodes;
 
             }
             else
             {
-
                 //create a Matrix to represent the layer of connections
                 //each column represents an output node
                 //each node can have a variable number of inputs, so matrix will be sparse
@@ -177,8 +170,7 @@ namespace TopolEvo.Architecture
         /// Single Forward Propagation through the network.
         /// Returns a set of outputs 
         /// </summary>
-        /// <param name="input">Set of coordinates</param>
-        /// <returns></returns>
+
         public Matrix<double> ForwardPass(Matrix<double> inputs)
         {
             if (_inputCount != inputs.ColumnCount) throw new IncorrectShapeException($"Network has {_inputCount} inputs, input data has shape {inputs.ColumnCount}");
@@ -270,32 +262,7 @@ namespace TopolEvo.Architecture
         }
     }
 
-
-    //LAYERS
-    public interface ILayer
-    {
-        NDArray Apply(NDArray input);
-    }
-
-    public class Linear : ILayer
-    {
-        NDArray weights;
-        NDArray biases;
-
-        public Linear(int _input_feats, int _output_feats, bool _bias = true)
-        {
-            //initialise weights and biases
-            weights = np.random.uniform(-1.0, 1.0, (_input_feats, _output_feats));
-            biases = np.random.uniform(-1.0, 1.0, (1, _output_feats));// : np.zeros((1 , _output_feats)); //need to initialise these at some point
-        }
-        public NDArray Apply(NDArray input)
-        {
- 
-            return np.matmul(input, weights) + biases;
-        }
-    }
-
-
+    
     public class Activation
     {
         public Func<double, double> Function { get; set; }
@@ -366,7 +333,6 @@ namespace TopolEvo.Architecture
 
         internal static Activation Random()
         {
-
             return new Activation((value) => (new System.Random((int) value).NextDouble()), "Random");
         }
     }

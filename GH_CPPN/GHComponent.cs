@@ -12,7 +12,7 @@ using TopolEvo.NEAT;
 using TopolEvo.Speciation;
 using TopolEvo.Display;
 using TopolEvo.Fitness;
-using ImageInfo;
+using ImageProcessing;
 
 namespace GH_CPPN
 {
@@ -88,70 +88,62 @@ namespace GH_CPPN
             DA.GetData(2, ref popSize);
             DA.GetData(3, ref save);
 
-            coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims );
-            coords = PopulateCoords(coords, subdivisions, dims );
-            metrics = Metrics.Contrast | Metrics.Luminance | Metrics.Pattern;
+            coords = Matrix<double>.Build.Dense((int) Math.Pow(subdivisions,dims), dims + 1);
+            coords = PopulateCoords(coords, subdivisions, dims + 1);
+            metrics = Metrics.Pattern | Metrics.Luminance | Metrics.Contrast;
 
             //if there is a target shape, rescale to [-0.5, 0.5]
-            if (targetIs3D)
-            {
-                var bbox = meshTarget.GetBoundingBox(true);
-                var box = new Box(bbox);
+            //if (targetIs3D)
+            //{
+            //    var bbox = meshTarget.GetBoundingBox(true);
+            //    var box = new Box(bbox);
 
-                var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
-                meshTarget.Translate(new Vector3d(-box.Center));
-                meshTarget.Scale(1.0 / longestDim);
+            //    var longestDim = Math.Max(Math.Max(box.X.Length, box.Y.Length), box.Z.Length);
+            //    meshTarget.Translate(new Vector3d(-box.Center));
+            //    meshTarget.Scale(1.0 / longestDim);
 
-                targetValues = Fitness.VoxelsFromMesh(subdivisions * subdivisions * subdivisions, 1, coords, meshTarget);
-                var occCount = targetValues.ColumnSums().Sum();
+            //    targetValues = Fitness.VoxelsFromMesh(subdivisions * subdivisions * subdivisions, 1, coords, meshTarget);
+            //    var occCount = targetValues.ColumnSums().Sum();
 
-                if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
-            }
+            //    if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
+            //}
+
 
             //if there is a target shape, rescale to[-0.5, 0.5]
             if (targetIs2D)
             {
-                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\grass.jpg");
+                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
                 targetValues = Fitness.PixelsFromImage(subdivisions * 4, bmTarget, false);
-                var occCount = targetValues.ColumnSums().Sum();
 
-                if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
             }
 
             //if there is a target shape, rescale to [-0.5, 0.5]
             if (targetIsColor)
             {
-                Image imageTarget = Image.FromFile(@"C:\Users\antmi\Pictures\grass.jpg");
+                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\bark1.jpg");
                 Bitmap bmTarget = new Bitmap(imageTarget);
                 targetValues = Fitness.PixelsFromImage(subdivisions * 4, bmTarget, true);
-                var occCount = targetValues.ColumnSums().Sum();
 
-                if (occCount == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate any voxels, try a larger number of subdivisions");
             }
 
             //on first run, initialise population
             if (!init)
             {
                 Fitness.bowModel = null;
-                perfTimer = new Stopwatch();
-                perfTimer.Start();
 
                 init = true;
-                pop = new Population(popSize, dims  );
+                pop = new Population(popSize, dims + 1);
                 Accord.Math.Random.Generator.Seed = 0;
             }
 
             else if (button)
             {
-                perfTimer = new Stopwatch();
-                perfTimer.Start();
                 
                 Run(generations , subdivisions, popSize);
 
                 meshes = GenerateMeshes(pop, outputs, subdivisions, pop.Genomes.Count);
 
-                perfTimer.Stop();
             }
 
             if (save)
@@ -171,9 +163,6 @@ namespace GH_CPPN
             DA.SetDataList(1, fits);
             DA.SetDataList(2, topologies);
             DA.SetData(3, final);
-            //DA.SetData(4, perfTimer.Elapsed.ToString());
-            //DA.SetDataList(5, femModels);
-            //DA.SetData(6, pop.Genomes.Select(a => a.Fitness).Average());
         }
 
         private Mesh Impose(Matrix<double> habitat, Matrix<double> prey, int subdivisionsHabitat, int subdivisionsPrey)
@@ -206,9 +195,6 @@ namespace GH_CPPN
                 var speciesList = speciator.GenerateSpecies(pop);
                 pop.NextGen(speciesList);
 
-
-                //pop.NextGeneration();
-
                 Evaluation();
             }
         }
@@ -216,14 +202,14 @@ namespace GH_CPPN
         private void SaveImages(Dictionary<int, Matrix<double>> outputs, int subdivisions)
         {
             var root = @"C:\Users\antmi\pictures\camo\";
-            var newCoords = Matrix<double>.Build.Dense((int)Math.Pow(subdivisions, dims), dims );
-            newCoords = PopulateCoords(newCoords, subdivisions, dims);
+            var newCoords = Matrix<double>.Build.Dense((int)Math.Pow(subdivisions, dims), dims + 1);
+            newCoords = PopulateCoords(newCoords, subdivisions, dims + 1);
 
             var imoutputs = pop.Evaluate(newCoords);
 
             foreach (var output in imoutputs)
             {
-                var bitmap = ImageAnalysis.BitmapFromPixels(output.Value, subdivisions);
+                var bitmap = ImageProcessing.Image.BitmapFromPixels(output.Value, subdivisions);
                 bitmap.Save(root + output.Key.ToString() + ".png");
             }
         }
@@ -232,7 +218,7 @@ namespace GH_CPPN
         {
             var root = @"C:\Users\antmi\pictures\video\";
 
-            var image = Fitness.ToImposedImage(targetValues, output, 400, 100);
+            var image = Fitness.ToImposedImage(targetValues, output, subdivisions * 4, subdivisions);
             image.Save(root + count.ToString() + ".png");
             
         }
@@ -241,7 +227,7 @@ namespace GH_CPPN
         {
             outputs = pop.Evaluate(coords);
             
-            SaveImage(outputs[pop.Genomes[0].ID], subdivisions, count++);
+           // SaveImage(outputs[pop.Genomes[0].ID], subdivisions, count++);
 
             fits = Fitness.Function(pop, outputs, coords, targetValues, subdivisions, metrics);
 
@@ -310,17 +296,7 @@ namespace GH_CPPN
                 }
             }
 
-            //non grid layout, just line
-            //for (int i = 0; i < pop.Genomes.Count; i++)
-            //{
-            //    //var drawing = new Drawing(width, -popSize / 2 * width + i * width, 0);
-            //    //Mesh combinedMesh = drawing.Paint(outputs[pop.Genomes[i].ID]);
-            //    //meshes.Add(combinedMesh);
-
-            //    var volume = new Volume(width, -popSize / 2 * (width + 1) + i * (width + 1));
-            //    Mesh combinedMesh = volume.Paint(outputs[pop.Genomes[i].ID]);
-            //    meshes.Add(combinedMesh);
-            //}
+   
             return meshes;
         }
 
@@ -393,27 +369,7 @@ namespace GH_CPPN
                 }
             }
 
-            //else if(dims == 3)
-            //{
-            //    for (int i = 0; i < subdivisions; i++)
-            //    {
-            //        for (int j = 0; j < subdivisions; j++)
-            //        {
-            //            for (int k = 0; k < subdivisions; k++)
-            //            {
-            //                //coords are in range [-0.5, 0.5]
-            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 0] = 1.0 * k / subdivisions;
-            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 1] = 1.0 * j / subdivisions;
-            //                coords[i * subdivisions * subdivisions + j * subdivisions + k , 2] = 1.0 * i / subdivisions;
-            //            }
-            //        }
-            //    }
-               //coords -= 0.5;
-            //}
-
-
-
-
+            //might be nicer to 
             return coords;
         }
     }

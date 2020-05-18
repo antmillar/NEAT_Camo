@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using NumSharp;
 
 namespace GH_CPPN
 {
+
+    /// <summary>
+    /// Simple implementation of Multilayer perceptron
+    /// Not used in the final project
+    /// </summary>
     public class temp
     {
         //MODELS

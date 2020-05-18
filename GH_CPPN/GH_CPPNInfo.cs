@@ -10,7 +10,7 @@ namespace GH_CPPN
         {
             get
             {
-                return "DynamicForms";
+                return "CamoEvolver";
             }
         }
         public override Bitmap Icon

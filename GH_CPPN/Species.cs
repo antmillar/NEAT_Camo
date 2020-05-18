@@ -13,7 +13,6 @@ namespace TopolEvo.Speciation
         public double MinFitness { get; set; }
         public Genome Representative {get; set;}
         public List<double> FitnessHistory { get; set; } = new List<double>();
-
         public int GenerationsSinceImprovement { get; set; } = 0;
         public bool Stagnant { get; internal set; }
 
@@ -21,33 +20,42 @@ namespace TopolEvo.Speciation
         {
             ID = Config.speciesID++;
         }
+        
+        /// <summary>
+        /// Update Species Fitness
+        /// </summary>
         public void UpdateFitness()
         {
-            //if (Stagnant == true) return;
-
             Fitness = Genomes.Count > 0 ? Math.Round(Genomes.Select(x => x.Fitness).Average(), 2) : 0.0;
             MinFitness = Genomes.Count > 0 ? Math.Round(Genomes.Select(x => x.Fitness).Min(), 2) : 0.0; //how to do with max?
         }
 
+        /// <summary>
+        /// Update the Species Representative
+        /// </summary>
         public void UpdateRepresentative()
         {
-            //if (Stagnant == true) return;
-
             Representative = Genomes.Count > 0 ? Genomes[0] : Representative;
         }
 
+        /// <summary>
+        /// Add Genome to Species and Update it's ID
+        /// </summary>
         public void Add(Genome genome)
         {
             Genomes.Add(genome);
             genome.SpeciesID = this.ID;
         }
-
     }
+
 
     public class Speciator
     {
         public List<Species> SpeciesList { get; set; } = new List<Species>();
 
+        /// <summary>
+        /// Takes a list of genomes and partitions them into species
+        /// </summary>
         public List<Species> GenerateSpecies(Population pop)
         {
             var representatives = new List<Genome>();
@@ -83,7 +91,7 @@ namespace TopolEvo.Speciation
                     var closest = distances.IndexOf(distances.Min());
 
                     //should have a max number of species maybe
-                    if (distances.Min() > 5)
+                    if (distances.Min() > 3)
                     {
                         var species = new Species();
                         species.Add(genome);
@@ -130,11 +138,6 @@ namespace TopolEvo.Speciation
                     {
                         species.GenerationsSinceImprovement++;
                     }
-
-                    if (species.GenerationsSinceImprovement > 50)
-                    {
-                        species.Stagnant = true;
-                    }
                 }
             }
 
@@ -153,7 +156,7 @@ namespace TopolEvo.Speciation
                 //replacing weaker species with new blank genomes
                 foreach(var spec in weakerSpecies)
                 {
-                    if(spec.GenerationsSinceImprovement > 50)
+                    if(spec.GenerationsSinceImprovement > 500)
                     {
                         for (int i = 0; i < spec.Genomes.Count; i++)
                         {

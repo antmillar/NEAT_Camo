@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TopolEvo.NEAT;
 
 namespace TopolEvo.Utilities
@@ -12,7 +8,7 @@ namespace TopolEvo.Utilities
         /// <summary>
         /// Remap values from one range to another
         /// </summary>
-        public static double Map(double value, double startOld, double endOld, double startNew, double endNew)
+        internal static double Map(double value, double startOld, double endOld, double startNew, double endNew)
         {
             var result = ((value - startOld) / (endOld - startOld)) * (endNew - startNew) + startNew;
 
