@@ -20,6 +20,7 @@ namespace TopolEvo.Architecture
     {
         int _inputCount;
         List<int> outputNodes = new List<int>();
+        List<int> inputNodes = new List<int>();
         Genome _genome;
         public List<List<NEAT.ConnectionGene>> _layers;
         public List<List<int>> _layersEndNodes;
@@ -50,7 +51,6 @@ namespace TopolEvo.Architecture
         public void GenerateLayers()
         {
             //use hashset as don't want repeated nodes
-            var inputNodes = new HashSet<int>();
             _layers = new List<List<NEAT.ConnectionGene>>();
             _layersEndNodes = new List<List<int>>();
             _layersStartNodes = new List<List<int>>();
@@ -72,7 +72,7 @@ namespace TopolEvo.Architecture
             }
 
             //recursively creates new layers
-            var output = MakeLayer(inputNodes);
+            var output = MakeLayer(new HashSet<int>(inputNodes));
 
         }
 
@@ -126,7 +126,9 @@ namespace TopolEvo.Architecture
             //recursively traverse the network until next nodes is empty
             if (nextNodes.Count == 0)
             {
+
                 return nextNodes;
+
             }
             else
             {
@@ -153,7 +155,14 @@ namespace TopolEvo.Architecture
                 var startNodes = currentLayer.Select(x => x.InputNode).Distinct();
 
                 _layersMatrices.Add(layerMatrix);
+
                 _layers.Add(currentLayer);
+
+                if (_layers[0].Count < 3)
+                {
+                    var test = " ";
+                }
+
                 _layersStartNodes.Add(startNodes.ToList());
                 _layersEndNodes.Add(nextNodes.ToList());
 
@@ -161,6 +170,7 @@ namespace TopolEvo.Architecture
                 visitedNodes.UnionWith(nextNodes);
                 return MakeLayer(visitedNodes);
             }
+
         }
 
         /// <summary>
@@ -181,7 +191,7 @@ namespace TopolEvo.Architecture
                 activations[i] = inputs.Column(i);
             }
 
-            var bias = Vector<double>.Build.Dense(inputs.RowCount, 1.0);
+            var bias = Vector<double>.Build.Dense(inputs.RowCount, 10.0);
 
             //populate bias
             activations[9999] = bias;
@@ -201,86 +211,21 @@ namespace TopolEvo.Architecture
 
             for (int i = 0; i < outputCount; i++)
             {
-                outputs.SetColumn(i, activations[outputNodes[i]]);
+                try
+                {
+                    //if activation can't be found it means the network couldn't be traversed, I that case output defaults to 0.0
+                    outputs.SetColumn(i, activations[outputNodes[i]]);
+                }
+                catch
+                {
+                    return outputs;
+                }
             }
 
             //last iteration of loop returns the outputs from the final layer
             var output = outputs;
 
-            if(output.ColumnCount == 2)
-            {
-                var test = "asd";
-            }
-
             return output;
-
-            #region code without matrices
-            
-
-            ////don't add the bias node twice
-            //for (int i = 0; i < _genome.Nodes.Count - 1; i++)
-            //{
-            //    inputs[i] = np.zeros(input.shape[0]);
-            //}
-
-            ////x coords
-            //inputs[0] = input[":,0"].Clone();
-            ////y coords
-            //inputs[1] = input[":,1"].Clone();
-
-            //if (input.shape[1] == 3 )
-            //{
-            //    //z coords
-            //    inputs[2] = input[":,2"].Clone();
-            //}
-
-            ////bias
-            //inputs[9999] = np.ones(inputs[0].shape);
-
-
-
-            ////loop over each layer
-            //for(int i = 0; i < _layers.Count; i++)
-            //{
-            //    //apply the weights for each connection in layer
-            //    for (int j = 0; j < _layers[i].Count; j++)
-            //    {
-            //        ConnectionGene connection = _layers[i][j];
-            //        inputs[connection._outputNode] += connection.Weight * inputs[connection._inputNode];
-            //    }
-
-
-            //    //apply activation to each node and add bias
-            //    //foreach(int num in _layersNodes[i])
-            //   for (int j = 0; j < _layersNodes[i].Count; j++)
-            //    {
-            //        int num = _layersNodes[i][j];
-
-            //        IActivation act;
-
-            //        if (_genome.GetNodeByID(num)._activationType == "sigmoid")
-            //        {
-            //            act = sigmoid;
-            //        }
-            //        else
-            //        {
-            //            //act = new Tanh();
-            //            act = tanh;
-
-            //        }
-            //        //seems to apply to the bias node too, do i need to stop that?
-            //        inputs[num] = act.Apply(inputs[num]);
-            //    }
-            //}
-
-            //var output2 = np.expand_dims(inputs[_outputNode], 1);
-
-
-            //var diff = output2 - output;
-            //what about more than one output?
-
-            #endregion
-
         }
 
         private Matrix<double> CalculateLayer(int layerNum, int rows)
@@ -323,18 +268,13 @@ namespace TopolEvo.Architecture
 
             return layerOutputs;
         }
-
-
-
     }
 
 
-    
     //LAYERS
     public interface ILayer
     {
         NDArray Apply(NDArray input);
-
     }
 
     public class Linear : ILayer
@@ -347,7 +287,6 @@ namespace TopolEvo.Architecture
             //initialise weights and biases
             weights = np.random.uniform(-1.0, 1.0, (_input_feats, _output_feats));
             biases = np.random.uniform(-1.0, 1.0, (1, _output_feats));// : np.zeros((1 , _output_feats)); //need to initialise these at some point
-  
         }
         public NDArray Apply(NDArray input)
         {
@@ -356,12 +295,6 @@ namespace TopolEvo.Architecture
         }
     }
 
-    //ACTIVATIONS
-    //interface for activation functions
-    public interface IActivation
-    {
-        NDArray Apply (NDArray input);
-    }
 
     public class Activation
     {
@@ -375,19 +308,21 @@ namespace TopolEvo.Architecture
           }
     }
 
-
     public static class Activations
     {
         public static Activation Sigmoid()
         {
-            return new Activation(SpecialFunctions.Logistic, "Sigmoid"); ;
+            return new Activation(x => (1 / (1 + Math.Exp(-5 * x))), "Sigmoid");
         }
 
         public static Activation Tanh()
         {
             return new Activation(Trig.Tanh, "Tanh");
         }
-
+        internal static Activation TanhAbs()
+        {
+            return new Activation((value) => Math.Abs(Trig.Tanh(value)), "TanhAbs");
+        }
         public static Activation Sin()
         {
             return new Activation(Trig.Sin, "Sin");
@@ -399,9 +334,12 @@ namespace TopolEvo.Architecture
 
         internal static Activation Rescale()
         {
-            return new Activation((value) => (10.0 * value), "Rescale");
+            return new Activation((value) => (5.0 * value), "Rescale");
         }
-
+        internal static Activation Downscale()
+        {
+            return new Activation((value) => (0.2 * value), "Downscale");
+        }
         internal static Activation Gaussian()
         {
             return new Activation((value) => 0.4 *  Math.Exp(-0.5 * (value * value)), "Gaussian");
@@ -412,6 +350,10 @@ namespace TopolEvo.Architecture
             return new Activation((value) => (value * value), "Square");
         }
 
+        internal static Activation Abs()
+        {
+            return new Activation((value) => Math.Abs(value), "Abs");
+        }
         internal static Activation Cos()
         {
             return new Activation(Trig.Cos, "Cos");
@@ -421,47 +363,11 @@ namespace TopolEvo.Architecture
         {
             return new Activation((value) => (value), "Linear");
         }
-    }
 
-    public class Sigmoid : IActivation
-    {
-        public NDArray Apply(NDArray input)
+        internal static Activation Random()
         {
-            return 1.0 / (1.0 + np.exp(-1.0 * input));
 
+            return new Activation((value) => (new System.Random((int) value).NextDouble()), "Random");
         }
     }
-
-    public class Tanh : IActivation
-    {
-        public NDArray Apply(NDArray input)
-        {
-            return (np.exp(input) - np.exp(-1.0 * input)) / (np.exp(input) + np.exp(-1.0 * input));
-        }
     }
-
-    public class Sin : IActivation
-    {
-        public NDArray Apply(NDArray input)
-        {
-            return np.sin(input);
-        }
-    }
-
-    public class Cos : IActivation
-    {
-        public NDArray Apply(NDArray input)
-        {
-            return np.cos(input);
-        }
-    }
-
-    public class Relu : IActivation
-    {
-        public NDArray Apply(NDArray input)
-        {
-            return np.maximum(input, 0);
-        }
-    }
-
-}

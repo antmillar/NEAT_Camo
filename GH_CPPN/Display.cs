@@ -55,10 +55,10 @@ namespace TopolEvo.Display
                 {
                     var cell = new Mesh();
 
-                    cell.Vertices.Add(j * size, i * size, 0.0);
-                    cell.Vertices.Add((j + 1) * size, i * size, 0.0);
-                    cell.Vertices.Add(j * size, (i + 1) * size, 0.0);
-                    cell.Vertices.Add((j + 1) * size, (i + 1) * size, 0.0);
+                    cell.Vertices.Add(j * size, -i * size, 0.0);
+                    cell.Vertices.Add((j + 1) * size, -i * size, 0.0);
+                    cell.Vertices.Add(j * size, (-i - 1) * size, 0.0);
+                    cell.Vertices.Add((j + 1) * size, (-i - 1) * size, 0.0);
 
                     cell.Faces.AddFace(0, 1, 3, 2);
 

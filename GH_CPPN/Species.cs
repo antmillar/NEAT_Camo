@@ -10,6 +10,7 @@ namespace TopolEvo.Speciation
         public int ID { get; set; }
         public List<Genome> Genomes { get; set; } = new List<Genome>();
         public double Fitness { get; set; }
+        public double MinFitness { get; set; }
         public Genome Representative {get; set;}
         public List<double> FitnessHistory { get; set; } = new List<double>();
 
@@ -25,6 +26,7 @@ namespace TopolEvo.Speciation
             //if (Stagnant == true) return;
 
             Fitness = Genomes.Count > 0 ? Math.Round(Genomes.Select(x => x.Fitness).Average(), 2) : 0.0;
+            MinFitness = Genomes.Count > 0 ? Math.Round(Genomes.Select(x => x.Fitness).Min(), 2) : 0.0; //how to do with max?
         }
 
         public void UpdateRepresentative()
@@ -37,6 +39,7 @@ namespace TopolEvo.Speciation
         public void Add(Genome genome)
         {
             Genomes.Add(genome);
+            genome.SpeciesID = this.ID;
         }
 
     }
@@ -80,7 +83,7 @@ namespace TopolEvo.Speciation
                     var closest = distances.IndexOf(distances.Min());
 
                     //should have a max number of species maybe
-                    if (distances.Min() > 15)
+                    if (distances.Min() > 5)
                     {
                         var species = new Species();
                         species.Add(genome);
@@ -128,7 +131,7 @@ namespace TopolEvo.Speciation
                         species.GenerationsSinceImprovement++;
                     }
 
-                    if (species.GenerationsSinceImprovement > 15)
+                    if (species.GenerationsSinceImprovement > 50)
                     {
                         species.Stagnant = true;
                     }
@@ -140,11 +143,26 @@ namespace TopolEvo.Speciation
                 SpeciesList.Remove(s);
             }
 
-            //if(SpeciesList.Count > 5)
-            //{
-            //    SpeciesList = SpeciesList.OrderByDescending(x => x.Fitness).ToList();
-            //    SpeciesList = SpeciesList.Take(5).ToList();
-            //}
+            SpeciesList = SpeciesList.OrderBy(x => x.MinFitness).ToList();
+
+            if (SpeciesList.Count > 5)
+            {
+                //take the remainig species
+                var weakerSpecies = SpeciesList.Skip(5).Take(SpeciesList.Count - 5).ToList();
+
+                //replacing weaker species with new blank genomes
+                foreach(var spec in weakerSpecies)
+                {
+                    if(spec.GenerationsSinceImprovement > 50)
+                    {
+                        for (int i = 0; i < spec.Genomes.Count; i++)
+                        {
+                           spec.Genomes[i] = new Genome();
+                        }
+                        SpeciesList.Remove(spec);
+                    }
+                }
+            }
 
             return SpeciesList;
         }

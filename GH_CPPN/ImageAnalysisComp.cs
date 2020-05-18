@@ -73,7 +73,7 @@ namespace GH_CPPN
             coords = Matrix<double>.Build.Dense((int)Math.Pow(subdivs, 2), 2);
             coords = PopulateCoords(subdivs, 2);
 
-            Bitmap a = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\grass2.jpg"));
+            Bitmap a = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\grass.jpg"));
             Bitmap b = Accord.Imaging.Image.Clone(new Bitmap(@"C:\Users\antmi\pictures\lena512.bmp"));
 
             //Accord.Imaging.Image.SetGrayscalePalette(a);
@@ -207,9 +207,9 @@ namespace GH_CPPN
                     }
                 }
 
-                coords -= 0.5;
             }
 
+            coords -= 0.5;
             return coords;
         }
 

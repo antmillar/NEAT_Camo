@@ -36,6 +36,7 @@ namespace TopolEvo.Fitness
         Sat = 8192,
         HueVar = 16384,
         SatVar = 16384 * 2,
+        Template = 65536,
     }
 
     public static class Fitness
@@ -98,7 +99,7 @@ namespace TopolEvo.Fitness
                     absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
 
                     totalFitness += Math.Pow(absdiff, 2);
-                    fitnessString += $" | Luminance : {Math.Round(absdiff, 2)}";
+                    fitnessString += $" | Luminance : {Math.Round(Math.Pow(absdiff, 2), 2)}";
                 }
 
 
@@ -112,21 +113,28 @@ namespace TopolEvo.Fitness
                     absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
 
                     totalFitness += Math.Pow(absdiff, 2);
-                    fitnessString += $" | Contrast : {Math.Round(absdiff, 2)}";
+                    fitnessString += $" | Contrast : {Math.Round(Math.Pow(absdiff, 2), 2)}";
                 }
 
 
                 if ((metrics & Metrics.Hue) == Metrics.Hue)
                 {
-                    var outputHue = ImageAnalysis.GetHue(outputValues, subdivisions);
-                    var targetHue = ImageAnalysis.GetHue(outputTargets, subdivisions);
+                    //var outputHue = ImageAnalysis.GetHue(outputValues, subdivisions);
+                    //var targetHue = ImageAnalysis.GetHue(outputTargets, subdivisions);
+                    var temp = ImageAnalysis.GetHueDist(outputValues, outputTargets,subdivisions);
 
+                    //var outputHue = outputValues.Column(0).Average();
+                    //var targetHue = outputTargets.Column(0).Average();
+                    //var absdiff = Math.Abs(outputHue - targetHue);
 
-                    var absdiff = Math.Abs(outputHue - targetHue);
+                    //var outputa = MathNet.Numerics.Statistics.Statistics.StandardDeviation(outputValues.Column(0));
+                    //var targeta = MathNet.Numerics.Statistics.Statistics.StandardDeviation(outputTargets.Column(0));
+                    //absdiff += Math.Abs(outputa - targeta);
 
-                    absdiff = Utils.Map(absdiff, 0, 255, 0, 10);
+                    //absdiff = Utils.Map(absdiff, 0, 255, 0, 10);
+                    var absdiff = Utils.Map(temp, 0, 1.0, 0, 10);
 
-                    totalFitness += Math.Pow(absdiff, 2);
+                    totalFitness += absdiff;
                     fitnessString += $" | Hue : {Math.Round(absdiff, 2)}";
                 }
 
@@ -142,7 +150,7 @@ namespace TopolEvo.Fitness
                     absdiff = Utils.Map(absdiff, 0, 100, 0, 10);
 
                     totalFitness += Math.Pow(absdiff ,2);
-                    fitnessString += $" | HueVar : {Math.Round(absdiff, 2)}";
+                    fitnessString += $" | HueVar : {Math.Round(Math.Pow(absdiff, 2), 2)}";
                 }
 
                 if ((metrics & Metrics.Sat) == Metrics.Sat)
@@ -155,7 +163,7 @@ namespace TopolEvo.Fitness
                     absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
 
                     totalFitness += Math.Pow(absdiff, 2);
-                    fitnessString += $" | Sat : {Math.Round(absdiff, 2)}";
+                    fitnessString += $" | Sat : {Math.Round(Math.Pow(absdiff, 2), 2)}";
                 }
 
                 if ((metrics & Metrics.SatVar) == Metrics.SatVar)
@@ -168,7 +176,7 @@ namespace TopolEvo.Fitness
                     absdiff = Utils.Map(absdiff, 0, 1.0, 0, 10);
 
                     totalFitness += Math.Pow(absdiff, 2);
-                    fitnessString += $" | SatVar : {Math.Round(absdiff, 2)}";
+                    fitnessString += $" | SatVar : {Math.Round(Math.Pow(absdiff, 2), 2)}";
                 }
 
                 if ((metrics & Metrics.Height) == Metrics.Height)
@@ -296,7 +304,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L1) == Metrics.L1 & outputTargets != null)
                 {
                     var fitnessL1Norm = (outputValues - outputTargets).PointwiseAbs().ToRowMajorArray().Sum();
-                    fitnessL1Norm = Utils.Map(fitnessL1Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
+                    fitnessL1Norm = Utils.Map(fitnessL1Norm, 0.00, subdivisions * subdivisions * outputTargets.ColumnCount, 0, 10.0);
                     totalFitness += fitnessL1Norm;
                     fitnessString += $" | L1Norm : {Math.Round(fitnessL1Norm, 2)}";
 
@@ -306,7 +314,7 @@ namespace TopolEvo.Fitness
                 if ((metrics & Metrics.L2) == Metrics.L2 & outputTargets != null)
                 {
                     var fitnessL2Norm = Math.Sqrt((outputValues - outputTargets).PointwisePower(2).ToRowMajorArray().Sum());
-                    fitnessL2Norm = Utils.Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions), 0, 10.0);
+                    fitnessL2Norm = Utils.Map(fitnessL2Norm, 0.00, Math.Sqrt(subdivisions * subdivisions * outputTargets.ColumnCount), 0, 10.0);
                     totalFitness += fitnessL2Norm;
                     fitnessString += $" | L2Norm : {Math.Round(fitnessL2Norm, 2)}";
 
@@ -315,11 +323,13 @@ namespace TopolEvo.Fitness
 
                 if ((metrics & Metrics.Gabor) == Metrics.Gabor & outputTargets != null)
                 {
-                    Accord.Math.Random.Generator.Seed = 0;
+
                     var gaborFitness = Superimpose(outputTargets, outputValues, 4 * subdivisions, subdivisions);
+                    gaborFitness = Utils.Map(gaborFitness, 0, 40.0, 0.0, 10.0);
                     totalFitness += gaborFitness;
                     fitnessString += $" | Gabor : {Math.Round(gaborFitness, 2)}";
                 }
+
 
 
                 // fitnessString += $" | Total : {Math.Round(totalFitness, 2)}";
@@ -330,22 +340,18 @@ namespace TopolEvo.Fitness
 
             if ((metrics & Metrics.Pattern) == Metrics.Pattern)
             {
-                System.Drawing.Image imageTarget = System.Drawing.Image.FromFile(@"C:\Users\antmi\Pictures\grass2.jpg");
-                Size size = new Size(subdivisions * 2, subdivisions * 2);
-                Bitmap bmTarget = new Bitmap(imageTarget, size);
-
-                Accord.Math.Random.Generator.Seed = 0;
 
                 if (Fitness.bowModel == null)
                 {
-                    Fitness.bowModel = ImageAnalysis.CreateBowModel(bmTarget);
+                    Fitness.bowModel = ImageAnalysis.CreateBowModel();
                 }
 
-                var featDistance = ImageAnalysis.GetFeatureDistances(occupancy, bmTarget, subdivisions, Fitness.bowModel);
+                var featDistance = ImageAnalysis.GetFeatureDistances(occupancy, subdivisions, Fitness.bowModel);
 
                 foreach (var key in featDistance.Keys)
                 {
                     var featCorrect = featDistance[key];
+                    featCorrect = Utils.Map(featCorrect, 0, 40.0, 0.0, 10.0);
                     pop.GetGenomeByID(key).Fitness += featCorrect;
                     var fitnessString = $" | Pattern : {Math.Round(featCorrect, 2)}";
                     pop.GetGenomeByID(key).FitnessAsString += fitnessString;
@@ -376,7 +382,7 @@ namespace TopolEvo.Fitness
         {
             if (Config.fitnessTarget == "min")
             {
-                pop.Genomes = pop.Genomes.OrderBy(x => x.Fitness).ToList();
+                pop.Genomes = pop.Genomes.OrderBy(x => x.Fitness).ThenBy(x => x.Complexity).ToList();
             }
             else if (Config.fitnessTarget == "max")
             {
@@ -389,19 +395,57 @@ namespace TopolEvo.Fitness
         public static double Superimpose(Matrix<double> habitat, Matrix<double> prey, int subdivisionsHabitat, int subdivisionsPrey)
         {
 
+            //create a new subselection (central 200 x 200 pixels) of the habitat to superimpose the prey (100 x 100) on
+            var central = Matrix<double>.Build.Dense(200 * 200, 1);
+
+            for (int i = 0; i < 200; i++)
+            {
+                for (int j = 0; j < 200; j++)
+                {
+                    central[j + i * 200, 0] = habitat[j + i * subdivisionsHabitat + 100 + 100 * subdivisionsHabitat, 0];
+                }
+            }
+
+            //superimpose the prey onto the habitat pixels
             for (int i = 0; i < subdivisionsPrey; i++)
             {
                 for (int j = 0; j < subdivisionsPrey; j++)
                 {
-                    habitat[j + i * subdivisionsHabitat + 150 + 150 * subdivisionsHabitat, 0] = prey[j + i * subdivisionsPrey, 0];
+                    central[j + i * 200 + 50 + 50 * 200, 0] = prey[j + i * subdivisionsPrey, 0];
                 }
             }
 
-            var lefts = ImageAnalysis.GaborFilter(habitat);
+            //pass the gabor edge filter over the combined pixels
+            var sum = ImageAnalysis.GaborFilter(central);
 
-            var mean = lefts.Sum();
+            return sum;
 
-            return mean;
+        }
+        public static Bitmap ToImposedImage(Matrix<double> habitat, Matrix<double> prey, int subdivisionsHabitat, int subdivisionsPrey)
+        {
+
+            //create a new subselection (central 200 x 200 pixels) of the habitat to superimpose the prey (100 x 100) on
+            var central = Matrix<double>.Build.Dense(400 * 400, 1);
+
+            for (int i = 0; i < 400; i++)
+            {
+                for (int j = 0; j < 400; j++)
+                {
+                    central[j + i * 400, 0] = habitat[j + i * subdivisionsHabitat, 0];
+                }
+            }
+
+            //superimpose the prey onto the habitat pixels
+            for (int i = 0; i < subdivisionsPrey; i++)
+            {
+                for (int j = 0; j < subdivisionsPrey; j++)
+                {
+                    central[j + i * 400 + 150 + 150 * 400, 0] = prey[j + i * subdivisionsPrey, 0];
+                }
+            }
+
+
+            return ImageAnalysis.BitmapFromPixels(central, 400); ;
 
         }
 
@@ -418,7 +462,7 @@ namespace TopolEvo.Fitness
 
             var width = bmTarget.Width;
             var height = bmTarget.Height;
-
+            //integer divs here??? check for i mage size>>than
             var xStep = width / subdivisions;
             var yStep = height / subdivisions;
             var counter = 0;
@@ -443,7 +487,7 @@ namespace TopolEvo.Fitness
 
 
         //greyscale from image
-        internal static Matrix<double> RGBFromImage(int subdivisions, Bitmap bmTarget, bool isColor)
+        internal static Matrix<double> PixelsFromImage(int subdivisions, Bitmap bmTarget, bool isColor)
         {
             var pixelTarget = Matrix<double>.Build.Dense(subdivisions * subdivisions, 1, 0.0);
 
@@ -451,7 +495,6 @@ namespace TopolEvo.Fitness
             {
                 pixelTarget = Matrix<double>.Build.Dense(subdivisions * subdivisions, 3, 0.0);
             }
-
 
             var width = bmTarget.Width;
             var height = bmTarget.Height;
@@ -490,7 +533,7 @@ namespace TopolEvo.Fitness
 
             for (int i = 0; i < voxelsTarget.RowCount; i++)
             {
-                ////equation of circle
+                ////equation of eight
                 var pt = new Point3d(coords[i, 0], coords[i, 1], coords[i, 2]);
 
                 if (meshTarget.IsPointInside(pt, 0.5, false))
@@ -531,7 +574,7 @@ namespace TopolEvo.Fitness
 
             for (int i = 0; i < targets.RowCount; i++)
             {
-                ////equation of circle
+                ////equation of eight
                 if (Math.Sqrt(Math.Pow(coords[i, 0], 2) + Math.Pow(coords[i, 1], 2)) <= 0.3)
                 {
                     targets[i, 0] = 1.0;
