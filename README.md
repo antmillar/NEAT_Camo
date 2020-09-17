@@ -1,6 +1,6 @@
 # Evolving Camouflage with [NEAT](https://www.cs.ucf.edu/~kstanley/neat.html) and [Compositional Pattern Producing Networks](https://en.wikipedia.org/wiki/Compositional_pattern-producing_network) in Rhino Grasshopper
 
-Grasshopper component that implements a CPPN from scratch to evolve camouflage designs
+C# component for Grasshopper that implements a CPPN from scratch to evolve camouflage designs
 
 Camouflage designs are evolved to blend in with their background, given a fitness functions determined by the following three metrics:
 
