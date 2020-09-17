@@ -14,3 +14,6 @@ Feature Matching using SURF features
 
 ## Example Images
 
+![Generated Designs](/images/designs_only.png)
+
+![Generated Designs and Habitat used for learning](/images/designs_in_habitat.png)
